@@ -1,0 +1,31 @@
+#!/bin/bash
+
+main() {
+	if [ $# -eq 0 ]; then
+		echo "No arguments supplied."
+		exit 0
+	fi
+
+	temp_dir=`mktemp`
+	err=`mount $1 $temp_dir` # mount the drive on temp dir
+	echo "err: $err"
+
+	if [[ "$?" != "0" ]]; then
+		echo "Error while mounting $1, error code: $err."
+		exit 1
+	fi
+
+	housing_dir="/opt/server-setup-scripts/external-backups" # to be changed to /etc/.../ when upon finalizing
+        timestamp_loc="$housing_dir/lastdate"
+        devdata_loc="$housing_dir/devices"
+        reservedata_loc="$housing_dir/reserved"
+        lastback_stamp_loc="$housing_dir/.lastback"
+
+
+	if [[ ! -f "$reservedata_loc" ]]; then
+		echo "$reservedata_loc does not exist!"
+		exit 2
+	fi
+}
+
+main "$@"

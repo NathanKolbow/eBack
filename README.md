@@ -1,2 +1,2 @@
 # eBack
-A Linux external backup utility.
+A WIP Linux external backup utility.

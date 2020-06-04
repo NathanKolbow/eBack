@@ -1,4 +1,7 @@
 devices
 lastdate
-tester
-tester.c
+reserved
+src/start_date
+src/tester_output
+src/end_date
+

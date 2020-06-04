@@ -1,0 +1,55 @@
+#!/bin/bash
+
+## Usage: verify <device>
+## Checks to see whether or not the given drive is properly formatted (right now 
+## all this means is that all non-backup data that was initially on the drive was deleted)
+main() {
+	if [ $# -eq 0 ]; then
+		echo "No arguments supplied."
+		_exit 1
+	fi
+
+	temp_dir=`mktemp -d`
+	err=`mount $1 $temp_dir` # mount the drive on temp dir
+	#echo "err: $?"
+
+	if [[ "$?" != "0" ]]; then
+		#echo "Error while mounting $1, error code: $err."
+		_exit 2
+	fi
+
+	housing_dir="/opt/server-setup-scripts/external-backups" # to be changed to /etc/.../ when upon finalizing
+    timestamp_loc="$housing_dir/lastdate"
+    devdata_loc="$housing_dir/devices"
+    reservedata_loc="$housing_dir/reserved"
+    lastback_stamp_loc="$housing_dir/.lastback"
+
+
+	if [[ ! -f "$reservedata_loc" ]]; then
+		#echo "$reservedata_loc does not exist!"
+		_exit 3
+	fi
+
+
+	check_file="$temp_dir/check_stamp.nat"
+	if [[ ! -f "$check_file" ]]; then
+		#echo "Not verified!"
+		_exit 4
+	fi
+
+	_exit 0
+}
+
+_exit() {
+	#echo "Exiting with code $1."
+
+	umount $temp_dir &> /dev/null
+
+	if [[ "$temp_dir" != "" ]]; then
+		rmdir $temp_dir &> /dev/null
+	fi
+
+	exit $1
+}
+
+main "$@"

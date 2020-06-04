@@ -4,7 +4,10 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/mount.h> // will use this eventually
+ 
 #include "back_util.h"
+#include "btrfs_handler.h"
+#include "io_handler.h" 
 
 int main() {
 	FILE *resdata_ptr = fopen(reservedata_loc, "r");
@@ -107,30 +110,8 @@ int main() {
 
 
 	printDirData(dirList, maxSize);
+
 	fclose(resdata_ptr);
-}
-
-// gets the filesystem that a given file belongs to
-char * getFileSystem(char *dir) {
-	char command[30 + strlen(dir)];
-	sprintf(command, "df --output=source %s > .tmp_df", dir);
-
-	system(command);
-
-	FILE *dfOut = fopen(".tmp_df", "r");
-	if(dfOut == NULL) {
-		fprintf(stderr, "ERROR: Failed to open temp file ./.tmp_df.\n");
-		exit(4);
-	}
-
-	char *line = NULL;
-	size_t n = 0;
-	getline(&line, &n, dfOut); // useless header line
-	free(line);
-
-	getline(&line, &n, dfOut); // this is just the fs
-
-	return line;
 }
 
 // returns the index of the directory dir in the data list

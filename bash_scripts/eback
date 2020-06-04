@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Not backing up dirs and their parents from the same FS to artificially
+# double the preceived size required for a backup is (mostly) the job of the user
+
 if [[ "$(whoami)" != "root" ]]; then
 	echo "This must be run as root."
 	exit 0
@@ -43,13 +46,13 @@ main() {
 	reservedata_loc="$housing_dir/reserved"
 	lastback_stamp_loc="$housing_dir/.lastback"
 
-	if [ ! -f "${timestamp_loc}" ]; then
+	if [[ ! -f "${timestamp_loc}" ]]; then
 		touch ${timestamp_loc}
 	fi
-	if [ ! -f "${devdata_loc}" ]; then
+	if [[ ! -f "${devdata_loc}" ]]; then
 		touch ${devdata_loc}
 	fi
-	if [ ! -f "${reservedata_loc}" ]; then
+	if [[ ! -f "${reservedata_loc}" ]]; then
 		touch ${reservedata_loc}
 	fi
 
@@ -116,7 +119,12 @@ main() {
 			big_information
 			;;
 		l)
-			[[ -f "$lastback_stamp_loc" ]] && echo -n "The last system backup occurred on: " ; cat $lastback_stamp_loc || echo "The system has not been backed up yet."
+			if [[ -f "$lastback_stamp_loc" ]]; then 
+				echo -n "The last system backup occurred on: "
+				cat $lastback_stamp_loc 
+			else
+				echo "The system has not been backed up yet."
+			fi
 			;;
 		h)
 			help_message
@@ -568,9 +576,13 @@ scan_devices() {
 				fi
 			fi
 
-			mount /dev/$device $tmpdir &> /dev/null
-			if [[ $? -ne 0 ]]; then
-				echo "Failed"
+			ret=`mount /dev/$device $tmpdir &> /dev/null`
+			if [[ $ret -ne 0 ]]; then
+				echo "Failed, $ret"
+				umount /dev/$device &> /dev/null
+				MOUNTED_DEV=""
+			elif [[ ! -f "$tmpdir/check_stamp.nat" ]]; then
+				echo "Not formatted"
 				umount /dev/$device &> /dev/null
 				MOUNTED_DEV=""
 			else
@@ -612,7 +624,7 @@ scan_devices() {
 				dev_labels=(${dev_labels[@]} $label)
 				dev_remaining=(${dev_remaining[@]} $(($no_K_size - $reserved_size)))
 
-				echo "Succeeded"
+				echo "Formatted"
 
 				umount $tmpdir
 				MOUNTED_DEV=""
@@ -652,10 +664,12 @@ set_potential_devs() {
 
 save_data() {
 	# Order: devs(), dev_IDs(), dev_labels(), dev_sizes(), dev_reserved(), dev_remaining()
-	if [[ -f "$devdata_loc" ]]; then rm $devdata_loc ; fi
+	touch ${devdata_loc}.tmp
 	for i in $(seq 0 $((${#devs[@]}-1))); do
-		printf "${devs[$i]}\$${dev_IDs[$i]}\$${dev_labels[$i]}\$${dev_sizes[$i]}\$${dev_reserved[$i]}\$${dev_remaining[$i]}\n" >> $devdata_loc
+		printf "${devs[$i]}\$${dev_IDs[$i]}\$${dev_labels[$i]}\$${dev_sizes[$i]}\$${dev_reserved[$i]}\$${dev_remaining[$i]}\n" >> ${devdata_loc}.tmp
 	done
+
+	mv ${devdata_loc}.tmp ${devdata_loc}
 }
 
 load_data() {

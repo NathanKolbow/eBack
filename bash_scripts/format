@@ -1,0 +1,31 @@
+#!/bin/bash
+
+## Usage: format <device>
+## This file formats a given device and then creates the file "check_stamp.nat" so that verify
+## correctly says that this device has been formatted for backups
+
+main() {
+	if [ $# -eq 0 ]; then
+		echo "No arguments supplied."
+		_exit 0
+	fi
+
+	printf "Are you sure you'd like to format $1 [Y/n]? "
+	read choice
+	if [[ ! "$choice" == "y" && ! "$choice" == "Y" ]]; then
+		echo "Quitting."
+		exit 0
+	fi
+
+	echo "Formatting $1."
+	mkfs.xfs -f $1
+
+	tmpdir=`mktemp -d`
+	mount $1 $tmpdir
+
+	touch $tmpdir/check_stamp.nat
+	umount $1
+	rmdir $tmpdir
+}
+
+main "$@"

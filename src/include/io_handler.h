@@ -10,7 +10,7 @@ struct dir_entry {
 	unsigned long int mtim_tv_sec;
 	unsigned long int atim_tv_sec;
 	off_t st_size;
-	int stat_ret;
+	int stat_err;
 
 	char *path; // ABSOLUTE PATH
 	char *link;

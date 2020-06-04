@@ -33,6 +33,8 @@ struct dir_entry * collectFileList(char *, struct dir_entry *, dev_t);
 struct dest_lock *DEST_LOCK;
 char *SRC_PREFIX;
 
+mode_t MODE_MASK = S_IRWXU | S_IRWXG | S_IRWXO;
+
 // Begins and then manages the transference of files from src to dest
 //    --> char **dest is a LIST of destinations, starting from the first
 //        and only moving to the second once the first is full
@@ -71,9 +73,9 @@ void transfer_init(char *src, char **dest, int len, int n_slaves) {
 // Tries to create a backup of ent in one of the valid dests in DEST_LOCK
 void backup_file(struct dir_entry *ent) {
 	// first check if dest already exists
-	if(ent->type == DT_REG && ent->stat_ret == -1) {
+	if(ent->type == DT_REG && ent->stat_err != 0) {
 		char msg[1024];
-		sprintf(msg, "Error: Failed to retrieve file info for %s, error #%d: %s\n", ent->path, errno, strerror(errno));
+		sprintf(msg, "Error: Failed to retrieve file info for %s, error #%d: %s\n", ent->path, ent->stat_err, strerror(ent->stat_err));
 		d_log(DB_WARNING, msg);
 		return;
 	}
@@ -134,6 +136,7 @@ int make_parents(char *path) {
 // src and dest must BOTH be ABSOLUTE FILE PATHS
 int try_backup(struct dir_entry *ent, char *dest, char depth) {
 	if(ent->type == DT_REG) {
+		printf("Opened file with mode %d\n", ent->st_mode);
 		int dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, ent->st_mode);
 		if(dest_fd == -1) {
 			if(depth == 0) {
@@ -161,6 +164,9 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 
 		off_t offset = 0;
 		ssize_t bytes_sent = sendfile(dest_fd, src_fd, &offset, ent->st_size);
+		printf("Changing mode to %d\n", ent->st_mode);
+		if(fchmod(dest_fd, ent->st_mode) == -1)
+			printf("#%d: %s\n", errno, strerror(errno));
 
 		close(src_fd);
 		close(dest_fd);
@@ -304,10 +310,11 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 				new->next = NULL;
 				new->link = NULL;
 				
-				new->stat_ret = stat(entry->d_name, &info);
+				stat(new->path, &info);
+				new->stat_err = errno;
 				new->atim_tv_sec = info.st_atim.tv_sec;
 				new->mtim_tv_sec = info.st_mtim.tv_sec;
-				new->st_mode = info.st_mode;
+				new->st_mode = MODE_MASK & info.st_mode;
 				new->st_size = info.st_size;
 
 

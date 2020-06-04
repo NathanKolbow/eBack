@@ -9,31 +9,23 @@
 #include <sys/types.h>
 #include <errno.h>
 
-int mkdir_recursive(char *dir, int mode) {
-	char tmp[256];
-	char *p = NULL;
-	size_t len;
-
-	snprintf(tmp, sizeof(tmp),"%s",dir);
-	len = strlen(tmp);
-	if(tmp[len - 1] == '/')
-		tmp[len - 1] = 0;
-	for(p = tmp + 1; *p; p++)
-		if(*p == '/') {
-			*p = 0;
-			if(mkdir(tmp, mode) == -1 && errno != EEXIST) { printf("%s, %d: %s\n", tmp, errno, strerror(errno)); return 0; }
-			*p = '/';
-		}
-	if(mkdir(tmp, mode) == -1) { printf("%s, %d: %s\n", tmp, errno, strerror(errno)); return 0; }
-
-	return 1;
-}
 
 int main() {
 //	if(1) printf("YES\n");
 
+	int fd = open("/opt/server-setup-scripts/external-backups/eBack/fs/fff", O_CREAT | O_WRONLY, 0444);
+	// printf("%d, #%d: %s\n", fd, errno, strerror(errno));
 
-	mkdir_recursive("/opt/server-setup-scripts/external-backups/fs/folder1/folder2/folder3/folder4/", 0777);
+	// int ret = fchmod(fd, 0644);
+	// printf("%d, #%d: %s\n", ret, errno, strerror(errno));
+
+
+	struct stat info;
+	stat("/opt/server-setup-scripts/external-backups/eBack/fs/fff", &info);
+
+	printf("mode: %d\n", info.st_mode);
+	printf("mode & 0777: %d\n", info.st_mode & (420));
+	 chmod("/opt/server-setup-scripts/external-backups/eBack/fs/fff", info.st_mode & (420));
 
 
 //	char *SRC_PREFIX = "/opt/PepPrograms/";

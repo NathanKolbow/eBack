@@ -26,5 +26,6 @@ struct dest_lock {
 
 void transfer_init(char *, char **, int, int);
 void backup_file(struct dir_entry *);
+void free_list_node(struct dir_entry *);
 
 #endif // _IO_HANDLER_H_

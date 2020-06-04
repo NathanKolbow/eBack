@@ -8,12 +8,25 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <pthread.h>
 
+void * work(void *arg) {
+	printf("Thread id: %lu\n", pthread_self());
+}
 
 int main() {
+	pthread_t threads[10];
+	for(int i = 0; i < 10; i++)
+		pthread_create(&threads[i], NULL, work, NULL);
+
+	sleep(5);
+
+
+
+
 //	if(1) printf("YES\n");
 
-	int fd = open("/opt/server-setup-scripts/external-backups/eBack/fs/fff", O_CREAT | O_WRONLY, 0444);
+//	int fd = open("/opt/server-setup-scripts/external-backups/eBack/fs/fff", O_CREAT | O_WRONLY, 0444);
 	// printf("%d, #%d: %s\n", fd, errno, strerror(errno));
 
 	// int ret = fchmod(fd, 0644);

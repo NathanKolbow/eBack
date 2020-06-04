@@ -29,8 +29,11 @@ int mkdir_recursive(char *, int);
 void freeFileList(struct dir_entry *);
 int sameDevice(dev_t, dev_t, char *);
 struct dir_entry * collectFileList(char *, struct dir_entry *, dev_t);
+int rnd();
 
-struct dest_lock *DEST_LOCK;
+char **DEST;
+pthread_mutex_t *DEST_LOCKS;
+int LOCK_LEN;
 char *SRC_PREFIX;
 
 mode_t MODE_MASK = S_IRWXU | S_IRWXG | S_IRWXO;
@@ -44,16 +47,18 @@ mode_t MODE_MASK = S_IRWXU | S_IRWXG | S_IRWXO;
 // Global var SRC_LOCK should ALREADY be initialized (lock and all)
 void transfer_init(char *src, char **dest, int len, int n_slaves) {
 	SRC_PREFIX = src;
+	DEST = dest;
 
-	DEST_LOCK = malloc(sizeof(struct dest_lock));
-	DEST_LOCK->dest = dest;
-	DEST_LOCK->len = len;
-	DEST_LOCK->_curr = 0;
-	DEST_LOCK->lock = malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init(DEST_LOCK->lock, NULL);
+	DEST_LOCKS = malloc(len * sizeof(pthread_mutex_t));
+	for(int i = 0; i < len; i++)
+		pthread_mutex_init(DEST_LOCKS+i, NULL);
+	LOCK_LEN = len;
 
-	char msg[1024];
-	sprintf(msg, "Collecting file list.\n");
+	time_t t;
+	srand((unsigned) time(&t));
+
+	char msg[64];
+	sprintf(msg, "%s", "Collecting file list.\n");
 	d_log(DB_DEBUG, msg);
 
 	struct dir_entry *list = collectInit(src); 
@@ -68,6 +73,8 @@ void transfer_init(char *src, char **dest, int len, int n_slaves) {
 
 	spin_slaves(lock, n_slaves);
 	await_slaves();
+
+	freeFileList(list);
 }
 
 // Tries to create a backup of ent in one of the valid dests in DEST_LOCK
@@ -80,13 +87,20 @@ void backup_file(struct dir_entry *ent) {
 		return;
 	}
 
+	// First we look to see if the backup already exists
 	char *dest;
 	int i;
-	for(i = 0; i < DEST_LOCK->len; i++) {
-		dest = malloc(strlen(DEST_LOCK->dest[i]) + strlen(ent->path) + 1); // the room for SRC_PREFIX is built into ent->path
-		sprintf(dest, "%s%s%s", DEST_LOCK->dest[i], SRC_PREFIX, ent->path+strlen(SRC_PREFIX));
+	for(i = 0; i < LOCK_LEN; i++) {
+		dest = malloc(strlen(DEST[i]) + strlen(ent->path) + 1); // the room for SRC_PREFIX is built into ent->path
+		sprintf(dest, "%s%s%s", DEST[i], SRC_PREFIX, ent->path+strlen(SRC_PREFIX));
 
 		struct stat dest_info;
+		if(stat(dest, &dest_info) == -1) {
+			// file does not already exist here, try the next location
+			free(dest);
+			dest = NULL; // NULL out dest in case this is the last dir we're checking
+			continue;
+		}
 
 		if(ent->mtim_tv_sec == dest_info.st_mtim.tv_sec && ent->mtim_tv_sec != 0) {
 			// file has an identical match already
@@ -95,23 +109,57 @@ void backup_file(struct dir_entry *ent) {
 			d_log(DB_DEBUG, msg);
 
 			free(dest);
+			// we can just leave
 			return;
-		} else {
-			// file exists but is old
-			// Process for when this happens:
-			//   1. Remove the old copy
-			//   2. Try to create a new copy of the file on the SAME device
-			//   3. If 2 fails, remove the partial copy and create a copy of the file
-			//      on the CURRENT device in DEST_LOCK
-			
-			int r = try_backup(ent, dest, 0);
-			if(r) {
-
-			}
 		}
 
-		free(dest);
+		char msg[1024];
+		sprintf(msg, "Found an old version of %s in %s!\n", ent->path, dest);
+		d_log(DB_EVERYTHING, msg);
+		break; // If we got all the way out here, that means we found an old copy!
 	}
+
+
+
+	// Once we have concluded that the file is not already backed up, we try and back it up
+	if(dest == NULL) {
+		i = rnd();
+	} else {
+		// if we got here AND dest is not NULL, then dest is an old copy of our file, so we simply unlink it
+		unlink(dest);
+	}
+
+	int count = 0;
+	// Loops through each dest, trying them one by one
+	while(count < LOCK_LEN) {
+		dest = malloc(strlen(DEST[i]) + strlen(ent->path) + 1); // the room for SRC_PREFIX is built into ent->path
+		sprintf(dest, "%s%s%s", DEST[i], SRC_PREFIX, ent->path+strlen(SRC_PREFIX));
+
+		// Now we just try backing it up on each loop!  If we succeed, we leave.
+		if(try_backup(ent, dest, 0)) {
+			char msg[1024];
+			sprintf(msg, "Successfully backed up %s in %s.\n", ent->path, dest);
+			d_log(DB_EVERYTHING, msg);
+
+			sprintf(msg, "Device chosen: %d\n", i);
+			d_log(DB_DEBUG, msg);
+
+			free(dest);
+			return;
+		} else {
+			printf("FAILED ON i == %d\n", i);
+		}
+
+
+		free(dest);
+		count++;
+		i = (i+1) % LOCK_LEN;
+	}
+
+	
+	char msg[1024];
+	sprintf(msg, "Failed to backup %s.\n", ent->path);
+	d_log(DB_EVERYTHING, msg);
 }
 
 int make_parents(char *path) {
@@ -310,8 +358,7 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 				new->next = NULL;
 				new->link = NULL;
 				
-				stat(new->path, &info);
-				new->stat_err = errno;
+				new->stat_err = (stat(new->path, &info) == 0) ? 0 : errno;
 				new->atim_tv_sec = info.st_atim.tv_sec;
 				new->mtim_tv_sec = info.st_mtim.tv_sec;
 				new->st_mode = MODE_MASK & info.st_mode;
@@ -382,14 +429,19 @@ void freeFileList(struct dir_entry *list) {
 		struct dir_entry *curr = list;
 		while(curr != NULL) {
 			list = curr->next;
-			freeListNode(curr);
+			free_list_node(curr);
 			curr = list;
 		}
 	}
 }
 
-void freeListNode(struct dir_entry *node) {
+void free_list_node(struct dir_entry *node) {
 	if(node->path != NULL) free(node->path);
 	if(node->link != NULL) free(node->link);
 	free(node);
+}
+
+// Generates a random integer from 0 to RND_UPPER-1 inclusive
+int rnd() {
+	return rand() % LOCK_LEN;
 }

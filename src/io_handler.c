@@ -189,9 +189,9 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 	} else if(ent->type == DT_LNK) {
 		return create_link(ent->link, dest);
 	} else if(ent->type == DT_DIR) {
-		int ret = mkdir_recursive(dest, 0777);
+		int ret = mkdir_recursive(dest, ent->st_mode);
 		if(ret == 0) {
-			char msg[1024];
+			char msg[1024]; 
 			sprintf(msg, "Fatal: Could not make directory %s due to error #%d: %s.\n", dest, errno, strerror(errno));
 			d_log(DB_FATAL, msg);
 			

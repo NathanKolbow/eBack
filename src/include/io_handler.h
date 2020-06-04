@@ -4,10 +4,17 @@
 #include <sys/types.h>
 
 struct dir_entry {
+	struct dir_entry *next; // next item in the linked list
+	
+	mode_t st_mode;
+	unsigned long int mtim_tv_sec;
+	unsigned long int atim_tv_sec;
+	off_t st_size;
+	int stat_ret;
+
 	char *path; // ABSOLUTE PATH
 	char *link;
 	unsigned char type; // inherited from respective dirent
-	struct dir_entry *next; // next item in the linked list
 };
 
 struct dest_lock {

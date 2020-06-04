@@ -24,7 +24,7 @@
 struct dir_entry * collectInit(char *);
 dev_t getDeviceID(char *);
 int create_link(char *, char *);
-int try_backup(struct dir_entry *, char *, struct stat, char);
+int try_backup(struct dir_entry *, char *, char);
 int mkdir_recursive(char *, int);
 void freeFileList(struct dir_entry *);
 int sameDevice(dev_t, dev_t, char *);
@@ -68,12 +68,10 @@ void transfer_init(char *src, char **dest, int len, int n_slaves) {
 	await_slaves();
 }
 
-// Creates a copy of src at the next available destination
-// in DEST_LOCK
+// Tries to create a backup of ent in one of the valid dests in DEST_LOCK
 void backup_file(struct dir_entry *ent) {
 	// first check if dest already exists
-	struct stat src_info;
-	if(ent->type == DT_REG && stat(ent->path, &src_info) == -1) {
+	if(ent->type == DT_REG && ent->stat_ret == -1) {
 		char msg[1024];
 		sprintf(msg, "Error: Failed to retrieve file info for %s, error #%d: %s\n", ent->path, errno, strerror(errno));
 		d_log(DB_WARNING, msg);
@@ -83,15 +81,15 @@ void backup_file(struct dir_entry *ent) {
 	char *dest;
 	int i;
 	for(i = 0; i < DEST_LOCK->len; i++) {
-		dest = malloc(strlen(DEST_LOCK->dest[i]) + strlen(ent->path) - strlen(SRC_PREFIX) + 1);
-		sprintf(dest, "%s%s", DEST_LOCK->dest[i], ent->path+strlen(SRC_PREFIX));
+		dest = malloc(strlen(DEST_LOCK->dest[i]) + strlen(ent->path) + 1); // the room for SRC_PREFIX is built into ent->path
+		sprintf(dest, "%s%s%s", DEST_LOCK->dest[i], SRC_PREFIX, ent->path+strlen(SRC_PREFIX));
 
 		struct stat dest_info;
 
-		if(src_info.st_mtim.tv_sec == dest_info.st_mtim.tv_sec && src_info.st_mtim.tv_sec != 0) {
+		if(ent->mtim_tv_sec == dest_info.st_mtim.tv_sec && ent->mtim_tv_sec != 0) {
 			// file has an identical match already
 			char msg[1024];
-			sprintf(msg, "%s is the same version as %s (%lu == %lu); skipping.\n", ent->path, dest, src_info.st_mtim.tv_sec, dest_info.st_mtim.tv_sec);
+			sprintf(msg, "%s is the same version as %s (%lu == %lu); skipping.\n", ent->path, dest, ent->mtim_tv_sec, dest_info.st_mtim.tv_sec);
 			d_log(DB_DEBUG, msg);
 
 			free(dest);
@@ -104,7 +102,7 @@ void backup_file(struct dir_entry *ent) {
 			//   3. If 2 fails, remove the partial copy and create a copy of the file
 			//      on the CURRENT device in DEST_LOCK
 			
-			int r = try_backup(ent, dest, src_info, 0);
+			int r = try_backup(ent, dest, 0);
 			if(r) {
 
 			}
@@ -134,13 +132,14 @@ int make_parents(char *path) {
 // For use as a helper function
 //
 // src and dest must BOTH be ABSOLUTE FILE PATHS
-int try_backup(struct dir_entry *ent, char *dest, struct stat src_info, char depth) {
+int try_backup(struct dir_entry *ent, char *dest, char depth) {
 	if(ent->type == DT_REG) {
-		int dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, src_info.st_mode);
+		int dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, ent->st_mode);
 		if(dest_fd == -1) {
 			if(depth == 0) {
 				if(make_parents(dest) == 1) {
-					return try_backup(ent, dest, src_info, 1);
+					// retry if the file's parent dir didn't exist but was successfully created here
+					return try_backup(ent, dest, 1);
 				}
 			}
 
@@ -161,12 +160,12 @@ int try_backup(struct dir_entry *ent, char *dest, struct stat src_info, char dep
 		}
 
 		off_t offset = 0;
-		ssize_t bytes_sent = sendfile(dest_fd, src_fd, &offset, src_info.st_size);
+		ssize_t bytes_sent = sendfile(dest_fd, src_fd, &offset, ent->st_size);
 
 		close(src_fd);
 		close(dest_fd);
 
-		if(bytes_sent != src_info.st_size) {
+		if(bytes_sent != ent->st_size) {
 			unlink(dest);
 			return 0;
 		} else {
@@ -175,8 +174,8 @@ int try_backup(struct dir_entry *ent, char *dest, struct stat src_info, char dep
 			d_log(DB_EVERYTHING, msg);
 
 			struct utimbuf src_time_data;
-			src_time_data.actime = src_info.st_atim.tv_sec;
-			src_time_data.modtime = src_info.st_mtim.tv_sec;
+			src_time_data.actime = ent->atim_tv_sec;
+			src_time_data.modtime = ent->mtim_tv_sec;
 
 			utime(dest, &src_time_data);
 			return 1;
@@ -295,6 +294,7 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 			// all that we care about keeping is directories, files, and links, so:
 			if(entry->d_type == DT_REG || entry->d_type == DT_DIR || entry->d_type == DT_LNK) {
 				struct dir_entry *new = malloc(sizeof(struct dir_entry));
+				struct stat info;
 
 				new->type = entry->d_type;
 				new->path = malloc((strlen(root) + strlen(entry->d_name) + 1));
@@ -303,6 +303,13 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 				new->path[strlen(root)+strlen(entry->d_name)] = '\0';
 				new->next = NULL;
 				new->link = NULL;
+				
+				new->stat_ret = stat(entry->d_name, &info);
+				new->atim_tv_sec = info.st_atim.tv_sec;
+				new->mtim_tv_sec = info.st_mtim.tv_sec;
+				new->st_mode = info.st_mode;
+				new->st_size = info.st_size;
+
 
 				if(entry->d_type == DT_LNK) {
 					// first find where the link is pointing

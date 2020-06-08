@@ -52,7 +52,7 @@ int main(int argc, char *args[]) {
 				abort();
 		}
 
-	char **ins = malloc(sizeof(char *) * (argc - optind - 1));
+	char **ins = malloc(sizeof(char *) * (argc - optind));
 	int i = 0;
 	for(int opti = optind; opti < argc; opti++) {
 		DIR *dir = opendir(args[opti]);
@@ -76,7 +76,13 @@ int main(int argc, char *args[]) {
 		i++;
 	}
 
-	transfer_init(ins[0], ins+1, 2, N_SLAVES);
+	// first input argument is the src, all the remaining inputs are the destinations
+	//transfer_init(ins[0], ins+1, argc - optind - 1, N_SLAVES);
+
+	for(int i = 0; i < argc - optind; i++) {
+		free(ins[i]);
+	}
+	free(ins);
 
 	return 0;
 }

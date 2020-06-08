@@ -582,7 +582,7 @@ scan_devices() {
 				umount /dev/$device &> /dev/null
 				MOUNTED_DEV=""
 			elif [[ ! -f "$tmpdir/check_stamp.nat" ]]; then
-				echo "Not formatted"
+				echo "Not properly formatted"
 				umount /dev/$device &> /dev/null
 				MOUNTED_DEV=""
 			else

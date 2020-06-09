@@ -43,6 +43,7 @@ main() {
 	devdata_loc="$housing_dir/devices"
 	reservedata_loc="$housing_dir/reserved"
 	lastback_stamp_loc="$housing_dir/.lastback"
+	dirlist_loc="$housing_dir/dirs"
 
 	if [[ ! -f "${timestamp_loc}" ]]; then
 		touch ${timestamp_loc}
@@ -52,6 +53,9 @@ main() {
 	fi
 	if [[ ! -f "${reservedata_loc}" ]]; then
 		touch ${reservedata_loc}
+	fi
+	if [[ ! -f "${dirlist_loc}" ]]; then
+		touch ${dirlist_loc}
 	fi
 
     if [[ "$SKIP_SCAN" == "true" ]]; then
@@ -90,6 +94,9 @@ run_loop() {
 		a)
 			add_directory ${input:2:${#input}}
 			;;
+		d)
+			dir_list
+			;;
 		r)
 			remove_directory ${input:2:${#input}}
 			;;
@@ -123,8 +130,81 @@ run_loop() {
 	done
 }
 
-load_data() {
+dir_list() {
+	list=(`cat ${dirlist_loc}`)
+	for item in ${list[@]}; do
+		echo -e "  -->\t\e[32m${item}\e[39m"
+	done
+}
+
+# $1 should be the directory to be added
+add_directory() {
+	if [[ "$1" == "" ]]; then
+		echo "Usage: a <directory>"
+		return
+	fi
+
+	abs_path=`realpath $1`
+	if [[ ! -d "$abs_path" ]]; then
+		echo "The directory $abs_path/ does not exist."
+		return
+	fi
+
+	matches=(`grep "$abs_path/" ${dirlist_loc}`)
+	for item in ${matches[@]}; do
+		if [[ "$item" == "$abs_path/" ]]; then
+			echo "$abs_path/ is already in the backup list."
+			return
+		fi
+	done
+
+	echo "Adding $abs_path/ to the directory list."
+	echo "$abs_path/" >> ${dirlist_loc}
+}
+
+# $1 should be the directory to be removed
+remove_directory() {
+	if [[ "$1" == "" ]]; then
+		echo "Usage: r <directory>"
+		return
+	fi
+
+	abs_path=`realpath $1`
+	list=(`cat ${dirlist_loc}`)
+
+	exact=0
+	for item in ${list[@]}; do
+		if [[ "$item" == "$abs_path/" ]]; then
+			exact=1
+		else
+			echo "$item" >> ${dirlist_loc}.tmp
+		fi
+	done
+
+	if [[ $exact -eq 0 ]]; then
+		rm ${dirlist_loc}.tmp
+		echo "$abs_path/ is not in the directory list."
+		return
+	else
+		mv ${dirlist_loc}.tmp ${dirlist_loc}
+		echo "Removed $abs_path/ from the directory list."
+	fi
+
+
+}
+
+save_data() {
 	# Order: devs(), dev_IDs(), dev_labels(), dev_sizes(), dev_reserved(), dev_remaining()
+	touch ${devdata_loc}.tmp
+	for i in $(seq 0 $((${#devs[@]}-1))); do
+		printf "${devs[$i]}\$${dev_IDs[$i]}\$${dev_labels[$i]}\$${dev_sizes[$i]}\n" >> ${devdata_loc}.tmp
+	done
+
+	mv ${devdata_loc}.tmp ${devdata_loc}
+}
+
+load_data() {
+	# Order: devs(), dev_IDs(), dev_labels(), dev_sizes()
 	devs=()
 	dev_IDs=()
 	dev_labels=()
@@ -280,16 +360,6 @@ fix_space() {
 set_potential_devs() {
 	potential_devs=(`ls -l /dev/disk/by-uuid | awk '{print $11}' | cut -d'/' -f3 | grep "sd*"`)
 	return 0
-}
-
-save_data() {
-	# Order: devs(), dev_IDs(), dev_labels(), dev_sizes(), dev_reserved(), dev_remaining()
-	touch ${devdata_loc}.tmp
-	for i in $(seq 0 $((${#devs[@]}-1))); do
-		printf "${devs[$i]}\$${dev_IDs[$i]}\$${dev_labels[$i]}\$${dev_sizes[$i]}\n" >> ${devdata_loc}.tmp
-	done
-
-	mv ${devdata_loc}.tmp ${devdata_loc}
 }
 
 exit_fxn() {

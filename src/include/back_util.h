@@ -7,6 +7,7 @@
 #define devdata_loc "/opt/server-setup-scripts/external-backups/devices"
 #define reservedata_loc "/opt/server-setup-scripts/external-backups/reserved"
 #define lastback_stamp_loc "/opt/server-setup-scripts/external-backups/.lastback"
+#define dirlist_loc "/opt/server-setup-scripts/external-backups/dirs"
 
 #define DIR_ENTRY_PREALLOC_INC 1000
 

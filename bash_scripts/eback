@@ -9,76 +9,11 @@ if [[ "$(whoami)" != "root" ]]; then
 fi
 
 main() {
-	trap sig_close SIGINT
-	trap sig_close SIGTERM
-	trap sig_close SIGHUP
+	
 
-	clear
+	
 
-	FORCE_SCAN=false
-	SKIP_SCAN=false
-	UNSAFE_MOUNT=false
-	DEVICE_SCAN_GRACE_PERIOD=1200
-	MOUNTED_DEV=""
-	REM_MIN=1024
-
-	while getopts "fsu :" OPTION; do
-		case $OPTION in
-		f)
-			FORCE_SCAN=true
-			;;
-		s)
-			SKIP_SCAN=true
-			;;
-		u)
-			UNSAFE_MOUNT=true
-			;;
-		*)
-			echo "Incorrect options provided."
-			exit 1
-			;;
-		esac
-	done
-
-	housing_dir="/opt/server-setup-scripts/external-backups" # to be changed to /etc/.../ when upon finalizing
-	timestamp_loc="$housing_dir/lastdate"
-	devdata_loc="$housing_dir/devices"
-	reservedata_loc="$housing_dir/reserved"
-	lastback_stamp_loc="$housing_dir/.lastback"
-
-	if [[ ! -f "${timestamp_loc}" ]]; then
-		touch ${timestamp_loc}
-	fi
-	if [[ ! -f "${devdata_loc}" ]]; then
-		touch ${devdata_loc}
-	fi
-	if [[ ! -f "${reservedata_loc}" ]]; then
-		touch ${reservedata_loc}
-	fi
-
-	if [[ "$SKIP_SCAN" == "true" ]]; then
-		echo -e "\e[33mDevice scan manually overridden.\e[0m"
-	elif [[ "$FORCE_SCAN" == "false" && -f "$timestamp_loc" ]]; then
-		last_date=`cat $timestamp_loc`
-
-		if [[ "${last_date}" == "" ]]; then last_date=0; fi
-		sec_since=$((`date +%s` - $last_date))
-
-		if [[ $sec_since -lt $DEVICE_SCAN_GRACE_PERIOD ]]; then
-			echo -e "\e[33mScanned devices ${sec_since}s ago, skipping.\e[0m"
-
-			SKIP_SCAN=true
-		fi
-	fi
-
-	if [[ "$SKIP_SCAN" == "false" ]]; then
-		scan_devices
-
-		echo -e "\e[33mDevices discovered:\e[0m"
-		print_device_info
-	else
-		load_data
-	fi
+	
 
 	# TODO: -a) Adding directories to the backups
 	#	-r) Removing directories from the backups
@@ -199,33 +134,11 @@ big_information() {
 	done
 }
 
-help_message() {
-	#	-a) Adding directories to the backups
-        #       r) Removing directories from the backups
-        #       -i) Printing out info about all the backups
-        #       -g) Printing out info about how the backups are spread across what devices
-        #       *) Create the logic that actually backs stuff up efficiently
-        #       -s) Rescan device data
-        #       -h) Help command
-        #       -q) Quit
-        #       *) Make executable program that gets put in crontab and does the actual backing up (probably same as previous *)
 
-	echo -e "\n\e[33m\e[4mCommands\e[0m"
-	echo -e "\ta) Add a directory to the backup system"
-	echo -e "\tr) Remove a directory from the backup system"
-	echo -e "\ti) Display size information about the available external drives"
-	echo -e "\tg) Graphically display size information about the available external drives"
-	echo -e "\ts) Rescan available external devices"
-	echo -e "\th) Display this info message"
-	echo -e "\td) Display information about currently active backups"
-	echo -e "\tl) Print when the last backup occurred"
-	echo -e "\tq) Quit\n"
-}
 
 print_bar_info() {
 	for i in $(seq 0 $((${#devs[@]} - 1))); do
 		device=${devs[$i]}
-		remaining=${dev_remaining[$i]}
 		total_size=${dev_sizes[$i]}
 		make_readable $total_size
 		total_readable=$retval
@@ -382,9 +295,6 @@ add_directory() {
 	readable_size="$retval"
 
 	total=0
-	for i in $(seq 0 $((${#devs[@]}-1))); do
-		total=$((total+${dev_remaining[$i]}))
-	done
 
 	if [[ $total -lt $size ]]; then
 		make_readable $total
@@ -640,74 +550,15 @@ scan_devices() {
 	rmdir $tmpdir
 }
 
-print_device_info() {
-	if [[ ${#devs[@]} -eq 0 ]]; then
-		echo "No external devices were found, try attaching some and try again."
-	else
-		for i in $(seq 0 $((${#devs[@]}-1))); do
 
-			make_readable ${dev_sizes[$i]}
-			total_size="$retval"
-			make_readable ${dev_remaining[$i]}
-			remaining_size="$retval"
 
-			printf "\t╔ ${dev_labels[$i]} [\e[33m${dev_IDs[$i]}\e[0m]\n\t╚ \e[33m/dev/${devs[$i]}\e[0m, \e[32m${remaining_size}\e[0m (${total_size} total)\n"
-			[[ $i -ne $((${#devs[@]}-1)) ]] && printf "\n" || :
-		done
-	fi
-}
 
-set_potential_devs() {
-	potential_devs=(`ls -l /dev/disk/by-uuid | awk '{print $11}' | cut -d'/' -f3 | grep "sd*"`)
-	return 0
-}
 
-save_data() {
-	# Order: devs(), dev_IDs(), dev_labels(), dev_sizes(), dev_reserved(), dev_remaining()
-	touch ${devdata_loc}.tmp
-	for i in $(seq 0 $((${#devs[@]}-1))); do
-		printf "${devs[$i]}\$${dev_IDs[$i]}\$${dev_labels[$i]}\$${dev_sizes[$i]}\$${dev_reserved[$i]}\$${dev_remaining[$i]}\n" >> ${devdata_loc}.tmp
-	done
 
-	mv ${devdata_loc}.tmp ${devdata_loc}
-}
 
-load_data() {
-	# Order: devs(), dev_IDs(), dev_labels(), dev_sizes(), dev_reserved(), dev_remaining()
-	devs=()
-	dev_IDs=()
-	dev_labels=()
-	dev_sizes=()
-	dev_reserved=()
-	dev_remaining=()
 
-	if [[ ! -f "$devdata_loc" ]]; then
-		echo "An unknown error occurred, please try again."
-		rm $timestamp_loc
-		exit 1
-	else
-		i=0
-		while IFS= read -r line; do
-			devs=(${devs[@]} `echo "$line" | cut -d'$' -f1`)
-			dev_IDs=(${dev_IDs[@]} `echo "$line" | cut -d'$' -f2`)
 
-			inval=`echo "$line" | cut -d'$' -f3`
-			fix_space # returns to $retval
-			dev_labels[$i]="$retval"
 
-			dev_sizes=(${dev_sizes[@]} `echo "$line" | cut -d'$' -f4`)
-			dev_reserved=(${dev_reserved[@]} `echo "$line" | cut -d'$' -f5`)
-			dev_remaining=(${dev_remaining[@]} `echo "$line" | cut -d'$' -f6`)
-			i=$((i+1))
-		done < "$devdata_loc"
-	fi
-}
-
-fix_space() {
-	# Usage: $0, with $inval set to the input string
-	retval=`echo "$inval" | sed 's/ /\\x20/g'`
-	return 0
-}
 
 make_readable() {
 	# Usage: $0 <bytes>[K]

@@ -30,6 +30,10 @@ void freeFileList(struct dir_entry *);
 int sameDevice(dev_t, dev_t, char *);
 struct dir_entry * collectFileList(char *, struct dir_entry *, dev_t);
 int rnd();
+int recursive_dir(char *);
+
+char **GLOBAL_SRC_LIST;
+int GLOBAL_SRC_SIZE;
 
 char **DEST;
 pthread_mutex_t *DEST_LOCKS;
@@ -46,6 +50,29 @@ mode_t MODE_MASK = S_IRWXU | S_IRWXG | S_IRWXO;
 //
 // Global var SRC_LOCK should ALREADY be initialized (lock and all)
 void transfer_init(char *src, char **dest, int len, int n_slaves) {
+	FILE *dir_list_fp = fopen(dirlist_loc, "r");
+	if(dir_list_fp == NULL) {
+		fprintf(stderr, "Error: Unable to open %s.\n", dirlist_loc);
+		exit(-1);
+	}
+	char buffer[1024];
+	int size = 0;
+	while(fgets(buffer, sizeof(buffer), dir_list_fp) != NULL)
+		size++;
+	rewind(dir_list_fp);
+
+	GLOBAL_SRC_LIST = malloc(sizeof(char *) * size);
+	GLOBAL_SRC_SIZE = size;
+	size = 0;
+	while(fgets(buffer, sizeof(buffer), dir_list_fp) != NULL) {
+		fix_newline(buffer);
+
+		GLOBAL_SRC_LIST[size] = malloc(strlen(buffer) + 1);
+		strcpy(GLOBAL_SRC_LIST[size], buffer);
+		size++;
+	}
+
+
 	SRC_PREFIX = src;
 	DEST = dest;
 
@@ -132,6 +159,13 @@ void backup_file(struct dir_entry *ent) {
 	int count = 0;
 	// Loops through each dest, trying them one by one
 	while(count < LOCK_LEN) {
+		if(DEST[i] == NULL) {
+			free(dest);
+			count++;
+			i = (i+1) % LOCK_LEN;
+			continue;
+		}
+
 		dest = malloc(strlen(DEST[i]) + strlen(ent->path) + 1); // the room for SRC_PREFIX is built into ent->path
 		sprintf(dest, "%s%s%s", DEST[i], SRC_PREFIX, ent->path+strlen(SRC_PREFIX));
 
@@ -141,13 +175,16 @@ void backup_file(struct dir_entry *ent) {
 			sprintf(msg, "Successfully backed up %s in %s.\n", ent->path, dest);
 			d_log(DB_EVERYTHING, msg);
 
-			sprintf(msg, "Device chosen: %d\n", i);
-			d_log(DB_DEBUG, msg);
-
 			free(dest);
 			return;
 		} else {
-			printf("FAILED ON i == %d\n", i);
+			// If the drive has less than DRIVE_CUTOFF_CAPACITY memory remaining, take it out of the list
+			struct statvfs buf;
+			statvfs(ent->path, &buf);
+
+			if(buf.f_bavail * buf.f_bsize < DRIVE_CUTOFF_CAPACITY) {
+				DEST[i] = NULL;
+			}
 		}
 
 
@@ -156,10 +193,16 @@ void backup_file(struct dir_entry *ent) {
 		i = (i+1) % LOCK_LEN;
 	}
 
-	
+	for(int i = 0; i < LOCK_LEN; i++)
+		if(DEST[i] != NULL)
+			return;
+
+	// all destinations are FULL (down to DRIVE_CUTOFF_CAPACITY granularity)
 	char msg[1024];
-	sprintf(msg, "Failed to backup %s.\n", ent->path);
-	d_log(DB_EVERYTHING, msg);
+	sprintf(msg, "Fatal: No more space remaining.\n");
+	d_log(DB_FATAL, msg);
+
+	exit(-1);
 }
 
 int make_parents(char *path) {
@@ -401,7 +444,14 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 						}
 					}
 
-					collectFileList(newDir, list, device);
+					if(!recursive_dir(newDir))
+						collectFileList(newDir, list, device);
+					else {
+						char msg[1024];
+						sprintf(msg, "Found cycle; skipping %s in this iteration.\n", newDir);
+						d_log(DB_DEBUG, msg);
+					}
+
 					free(newDir);
 				}
 
@@ -417,6 +467,15 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 
 	closedir(curr_dir);
 	return list;
+}
+
+int recursive_dir(char *dir) {
+	for(int i = 0; i < GLOBAL_SRC_SIZE; i++) {
+		if(strcmp(GLOBAL_SRC_LIST[i], dir) == 0) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 
@@ -439,6 +498,20 @@ void free_list_node(struct dir_entry *node) {
 	if(node->path != NULL) free(node->path);
 	if(node->link != NULL) free(node->link);
 	free(node);
+}
+
+// Takes a string w/ a newline and turns that newline into a null terminator
+// Used to alleviate the fgets output that ends w/ newlines
+void fix_newline(char *str) {
+	int i = 0;
+	while(str[i] != '\0') {
+		if(str[i] == '\n') {
+			str[i] = '\0';
+			return;
+		}
+
+		i++;
+	}
 }
 
 // Generates a random integer from 0 to RND_UPPER-1 inclusive

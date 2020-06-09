@@ -24,20 +24,6 @@ int btrfs() {
     return BTRFS_MODE;
 }
 
-// Takes a string w/ a newline and turns that newline into a null terminator
-// Used to alleviate the fgets output that ends w/ newlines
-void fix_newline(char *str) {
-	int i = 0;
-	while(str[i] != '\0') {
-		if(str[i] == '\n') {
-			str[i] = '\0';
-			return;
-		}
-
-		i++;
-	}
-}
-
 // Checks if the given path is in the list of subvolumes collected in btrfs_init(...)
 // If not, return 0.  If yes, return 1 AND set the cached device to path's device number
 int is_valid_sub(char *path) {  

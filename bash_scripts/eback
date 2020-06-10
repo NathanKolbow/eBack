@@ -11,8 +11,6 @@ main() {
 	trap sig_close SIGTERM
 	trap sig_close SIGHUP
 
-	clear
-
 	FORCE_SCAN=false
 	SKIP_SCAN=false
 	UNSAFE_MOUNT=false
@@ -20,7 +18,15 @@ main() {
 	MOUNTED_DEV=""
 	REM_MIN=1024
 
-	while getopts "fsu :" OPTION; do
+	housing_dir="/opt/server-setup-scripts/external-backups" # to be changed to /etc/.../ when upon finalizing
+	timestamp_loc="$housing_dir/lastdate"
+	used_devs_loc="$housing_dir/used_devs"
+	devdata_loc="$housing_dir/.devices"
+	reservedata_loc="$housing_dir/reserved"
+	lastback_stamp_loc="$housing_dir/.lastback"
+	dirlist_loc="$housing_dir/dirs"
+
+	while getopts "fsuB :" OPTION; do
 		case $OPTION in
 		f)
 			FORCE_SCAN=true
@@ -31,6 +37,10 @@ main() {
 		u)
 			UNSAFE_MOUNT=true
 			;;
+		B)
+			backup
+			exit_fxn
+			;;
 		*)
 			echo "Incorrect options provided."
 			exit 1
@@ -38,13 +48,7 @@ main() {
 		esac
 	done
 
-	housing_dir="/opt/server-setup-scripts/external-backups" # to be changed to /etc/.../ when upon finalizing
-	timestamp_loc="$housing_dir/lastdate"
-	used_devs_loc="$housing_dir/used_devs"
-	devdata_loc="$housing_dir/.devices"
-	reservedata_loc="$housing_dir/reserved"
-	lastback_stamp_loc="$housing_dir/.lastback"
-	dirlist_loc="$housing_dir/dirs"
+	clear
 
 	if [[ ! -d "${housing_dir}" ]]; then
 		mkdir -p ${housing_dir}
@@ -93,6 +97,61 @@ main() {
     run_loop
 }
 
+
+# PERFORMS THE SYSTEM BACKUP
+backup() {
+	if [[ ! -f "${used_devs_loc}" ]]; then
+		echo "ERROR: ${used_devs_loc} does not exist."
+		exit_fxn
+	fi
+	if [[ ! -f "${dirlist_loc}" ]]; then
+		echo "ERROR: ${dirlist_loc} does not exist."
+		exit_fxn
+	fi
+
+	# Gather device UUIDs
+	UUIDs=()
+	while IFS= read -r line; do
+		UUIDs=(${UUIDs[@]} $line)
+	done < "${used_devs_loc}"
+
+
+	# Mount devices
+	temps=()
+	for i in `seq 0 $((${#UUIDs[@]}-1))`; do
+		tmp=`mktemp -d`
+		tmp="$tmp/"
+		temps=(${temps[@]} $tmp)
+
+		mount -o suid UUID="${UUIDs[i]}" $tmp
+		ret=$?
+
+		if [[ $ret -ne 0 ]]; then
+			echo "ERROR: Failed to mount UUID ${UUIDs[i]}. Mount error code: $ret. Exiting..."
+			exit_fxn
+		fi
+	done
+
+	# Gather backup directories
+	dirs=()
+	while IFS= read -r line; do
+		dirs=(${dirs[@]} $line)
+	done < "${dirlist_loc}"
+
+	n_threads=2
+	for dir in ${dirs[@]}; do
+		cback -s $n_threads $dir ${temps[@]}
+	done
+
+	# For for pids to finish
+	for pid in ${pids[@]}; do
+		wait $pid
+	done
+
+	# Done.
+}
+
+
 run_loop() {
 	while [ 1 -eq 1 ]; do
 		read -p "Command (h for help): " input
@@ -138,7 +197,6 @@ run_loop() {
 			help_message
 			;;
 		q)
-			echo "Goodbye."
 			exit_fxn
 			exit 0
 			;;
@@ -164,7 +222,7 @@ list_devices() {
 		make_readable ${dev_sizes[$i]}
 		total_size="$retval"
 
-		echo -e " --> \t$((i+1)). ${dev_labels[i]} [\e[33m${dev_IDs[i]}\e[0m, /dev/${devs[i]}]\e[0m, \e[32m${total_size}\e[0m"
+		echo -e " --> \t$((i + 1)). ${dev_labels[i]} [\e[33m${dev_IDs[i]}\e[0m, /dev/${devs[i]}]\e[0m, \e[32m${total_size}\e[0m"
 	done
 }
 
@@ -209,10 +267,6 @@ remove_device() {
 		return
 	fi
 
-	if [[ $1 -gt ${#devs[@]} || $1 -lt 1 ]]; then
-		echo "Error: device number must be between 1 and ${#devs[@]}."
-	fi
-
 	existing_devs=(`cat ${used_devs_loc}`)
 	if [[ ${existing_devs[@]} == "" ]]; then
 		echo "Error: no devices are currently marked as in-use."
@@ -220,17 +274,19 @@ remove_device() {
 	fi
 
 	exact=0
+	i=1
 	for item in ${existing_devs[@]}; do
-		if [[ "$item" == "${dev_IDs[$(($1 - 1))]}" ]]; then
+		if [[ $i -eq $1 ]]; then
 			exact=1
 		else
 			echo "$item" >> ${used_devs_loc}.tmp
 		fi
+		i=$((i + 1))
 	done
 
 	if [[ $exact -eq 0 ]]; then
-		[[ -f "${used_devs_loc}.tmp" ]] & rm ${used_devs_loc}.tmp | :
-		echo "${dev_IDs[$(($1-1))]} is not in the device list."
+		[[ -f "${used_devs_loc}.tmp" ]] && rm ${used_devs_loc}.tmp || :
+		echo "There are not $1 devices in the device list."
 		return
 	else
 		if [[ -f "${used_devs_loc}.tmp" ]]; then
@@ -240,7 +296,7 @@ remove_device() {
 			touch ${used_devs_loc}
 		fi
 
-		echo "Removed ${dev_IDs[$(($1 - 1))]} from the device list."
+		echo "Removed device."
 	fi
 }
 
@@ -265,7 +321,8 @@ add_directory() {
 	fi
 
 	abs_path=`realpath $1`
-	if [[ ! -d "$abs_path" ]]; then
+	[[ "$abs_path" == "/" ]] && abs_path="" || :
+	if [[ ! -d "$abs_path/" ]]; then
 		echo "The directory $abs_path/ does not exist."
 		return
 	fi
@@ -290,6 +347,7 @@ remove_directory() {
 	fi
 
 	abs_path=`realpath $1`
+	[[ "$abs_path" == "/" ]] && abs_path="" || :
 	list=(`cat ${dirlist_loc}`)
 
 	exact=0
@@ -435,7 +493,7 @@ scan_devices() {
 				if [[ "$grep_res" != "" ]]; then
 					reserved_size=0
 					for k in $(seq 0 $((${#grep_res[@]} - 1))); do
-						reserved_size=$((reserved_size + `cat $reservedata_loc | sed -n "$((${grep_res[$k]} - 1))p" | cut -d':' -f2 | numfmt --from=iec --to=none`))
+						reserved_size=$((reserved_size + `cat $reservedata_loc | sed -n "$((${grep_res[k]} - 1))p" | cut -d':' -f2 | numfmt --from=iec --to=none`))
 					done
 
 					if [[ $(($no_K_size - $reserved_size)) -lt $REM_MIN ]]; then
@@ -469,12 +527,9 @@ scan_devices() {
 
 sig_close() {
 	echo
-	printf "SIGINT, SIGTERM or SIGHUP received, exiting..."
+	printf "SIGINT, SIGTERM or SIGHUP received, exiting...\n"
 
 	exit_fxn
-
-	printf " goodbye.\n"
-	exit 0
 }
 
 fix_space() {
@@ -492,6 +547,14 @@ exit_fxn() {
 	rm $tmpdir &> /dev/null
 	rm $tmpdata &> /dev/null
 	[[ "$MOUNTED_DEV" != "" ]] && umount $MOUNTED_DEV &> /dev/null || :
+	
+	for dir in ${temps[@]}; do
+		umount $dir &> /dev/null
+		rmdir $dir
+	done
+
+	printf "Goodbye.\n"
+	exit
 }
 
 help_message() {

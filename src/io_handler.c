@@ -227,7 +227,6 @@ int make_parents(char *path) {
 // src and dest must BOTH be ABSOLUTE FILE PATHS
 int try_backup(struct dir_entry *ent, char *dest, char depth) {
 	if(ent->type == DT_REG) {
-		printf("Opened file with mode %d\n", ent->st_mode);
 		int dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, ent->st_mode);
 		if(dest_fd == -1) {
 			if(depth == 0) {
@@ -255,9 +254,7 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 
 		off_t offset = 0;
 		ssize_t bytes_sent = sendfile(dest_fd, src_fd, &offset, ent->st_size);
-		printf("Changing mode to %d\n", ent->st_mode);
-		if(fchmod(dest_fd, ent->st_mode) == -1)
-			printf("#%d: %s\n", errno, strerror(errno));
+		fchmod(dest_fd, ent->st_mode);
 
 		close(src_fd);
 		close(dest_fd);

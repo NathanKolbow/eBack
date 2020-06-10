@@ -40,16 +40,23 @@ main() {
 
 	housing_dir="/opt/server-setup-scripts/external-backups" # to be changed to /etc/.../ when upon finalizing
 	timestamp_loc="$housing_dir/lastdate"
-	devdata_loc="$housing_dir/devices"
+	used_devs_loc="$housing_dir/used_devs"
+	devdata_loc="$housing_dir/.devices"
 	reservedata_loc="$housing_dir/reserved"
 	lastback_stamp_loc="$housing_dir/.lastback"
 	dirlist_loc="$housing_dir/dirs"
 
+	if [[ ! -d "${housing_dir}" ]]; then
+		mkdir -p ${housing_dir}
+	fi
 	if [[ ! -f "${timestamp_loc}" ]]; then
 		touch ${timestamp_loc}
 	fi
 	if [[ ! -f "${devdata_loc}" ]]; then
 		touch ${devdata_loc}
+	fi
+	if [[ ! -f "${used_devs_loc}" ]]; then
+		touch ${used_devs_loc}
 	fi
 	if [[ ! -f "${reservedata_loc}" ]]; then
 		touch ${reservedata_loc}
@@ -91,6 +98,18 @@ run_loop() {
 		read -p "Command (h for help): " input
 
 		case ${input:0:1} in
+		A)
+			add_device ${input:2:${#input}}
+			;;
+		R)
+			remove_device ${input:2:${#input}}
+			;;
+		L)
+			list_devices
+			;;
+		D)
+			list_inuse_devices
+			;;
 		a)
 			add_directory ${input:2:${#input}}
 			;;
@@ -130,8 +149,109 @@ run_loop() {
 	done
 }
 
+
+list_inuse_devices() {
+	i=1
+	while IFS= read -r line; do
+		echo -e " -->\t$i. $line"
+		i=$((i+1))
+	done < "${used_devs_loc}"
+}
+
+# lists devices that can potentially be added
+list_devices() {
+	for i in `seq 0 $((${#devs[@]}-1))`; do
+		make_readable ${dev_sizes[$i]}
+		total_size="$retval"
+
+		echo -e " --> \t$((i+1)). ${dev_labels[i]} [\e[33m${dev_IDs[i]}\e[0m, /dev/${devs[i]}]\e[0m, \e[32m${total_size}\e[0m"
+	done
+}
+
+# $1 is the device's index in the list of devices (as returned by list_devices())
+add_device() {
+	if [[ "$1" == "" ]]; then
+		echo "Usage: A <device number>"
+		return
+	fi
+
+	regex='^[0-9]+$'
+	if ! [[ $1 =~ $regex ]]; then
+		echo "Error: second input must be a positive number."
+		return
+	fi
+
+	if [[ $1 -gt ${#devs[@]} || $1 -lt 1 ]]; then
+		echo "Error: device number must be between 1 and ${#devs[@]}."
+	fi
+
+	existing_devs=(`cat ${used_devs_loc}`)
+	for item in ${existing_devs[@]}; do
+		if [[ "$item" == "${dev_IDs[$(($1 - 1))]}" ]]; then
+			echo "Error: this device is already marked as in-use."
+			return
+		fi
+	done
+
+	echo "${dev_IDs[$(($1 - 1))]}" >> ${used_devs_loc}
+	echo " >> ${dev_IDs[$(($1 - 1))]}"
+}
+
+remove_device() {
+	if [[ "$1" == "" ]]; then
+		echo "Usage: A <device number>"
+		return
+	fi
+
+	regex='^[0-9]+$'
+	if ! [[ $1 =~ $regex ]]; then
+		echo "Error: second input must be a positive number."
+		return
+	fi
+
+	if [[ $1 -gt ${#devs[@]} || $1 -lt 1 ]]; then
+		echo "Error: device number must be between 1 and ${#devs[@]}."
+	fi
+
+	existing_devs=(`cat ${used_devs_loc}`)
+	if [[ ${existing_devs[@]} == "" ]]; then
+		echo "Error: no devices are currently marked as in-use."
+		return
+	fi
+
+	exact=0
+	for item in ${existing_devs[@]}; do
+		if [[ "$item" == "${dev_IDs[$(($1 - 1))]}" ]]; then
+			exact=1
+		else
+			echo "$item" >> ${used_devs_loc}.tmp
+		fi
+	done
+
+	if [[ $exact -eq 0 ]]; then
+		[[ -f "${used_devs_loc}.tmp" ]] & rm ${used_devs_loc}.tmp | :
+		echo "${dev_IDs[$(($1-1))]} is not in the device list."
+		return
+	else
+		if [[ -f "${used_devs_loc}.tmp" ]]; then
+			mv ${used_devs_loc}.tmp ${used_devs_loc}
+		else
+			rm ${used_devs_loc}
+			touch ${used_devs_loc}
+		fi
+
+		echo "Removed ${dev_IDs[$(($1 - 1))]} from the device list."
+	fi
+}
+
 dir_list() {
 	list=(`cat ${dirlist_loc}`)
+
+	if [[ ${#list[@]} -eq 0 ]]; then
+		echo -e "\e[31mThere are not currently any directories chosen for backups.\e[39m"
+		return
+	fi
+
 	for item in ${list[@]}; do
 		echo -e "  -->\t\e[32m${item}\e[39m"
 	done
@@ -186,7 +306,13 @@ remove_directory() {
 		echo "$abs_path/ is not in the directory list."
 		return
 	else
-		mv ${dirlist_loc}.tmp ${dirlist_loc}
+		if [[ -f "${dirlist_loc}.tmp" ]]; then
+			mv ${dirlist_loc}.tmp ${dirlist_loc}
+		else
+			rm ${dirlist_loc}
+			touch ${dirlist_loc}
+		fi
+
 		echo "Removed $abs_path/ from the directory list."
 	fi
 

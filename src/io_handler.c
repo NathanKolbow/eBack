@@ -85,7 +85,7 @@ void transfer_init(char *src, char **dest, int len, int n_slaves) {
 	srand((unsigned) time(&t));
 
 	char msg[64];
-	sprintf(msg, "%s", "Collecting file list.\n");
+	sprintf(msg, "Collecting file list for %s.\n", src);
 	d_log(DB_DEBUG, msg);
 
 	struct dir_entry *list = collectInit(src); 
@@ -180,9 +180,13 @@ void backup_file(struct dir_entry *ent) {
 		} else {
 			// If the drive has less than DRIVE_CUTOFF_CAPACITY memory remaining, take it out of the list
 			struct statvfs buf;
-			statvfs(ent->path, &buf);
+			statvfs(DEST[i], &buf);
 
 			if(buf.f_bavail * buf.f_bsize < DRIVE_CUTOFF_CAPACITY) {
+				char msg[1024];
+				sprintf(msg, "Fatal: Ran out of space on %s; %lu, %lu, %lu < %d.\n", DEST[i], buf.f_bavail, buf.f_bsize, buf.f_bavail*buf.f_bsize, DRIVE_CUTOFF_CAPACITY);
+				d_log(DB_FATAL, msg);
+
 				DEST[i] = NULL;
 			}
 		}
@@ -412,13 +416,7 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 					if(len >= 256) {
 						fprintf(stderr, "Error: Failed to follow the the link created by %s.\n", new->path);
 					} else {
-						buffer[len] = '\0';
-
-						// resolve the path name to its absolute path
-						char to_resolve[strlen(root) + strlen(buffer) + 1];
-						sprintf(to_resolve, "%s%s", root, buffer);
-
-						new->link = realpath(to_resolve, NULL);
+						new->link = realpath(buffer, NULL);
 					}
 				}
 

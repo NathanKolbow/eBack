@@ -39,6 +39,10 @@ void await_slaves() {
     for(int i = 0; i < N_SLAVES; i++) {
 		pthread_join(SLAVE_IDS[i], NULL);
 	}
+
+    char msg[128];
+    sprintf(msg, "Finished awaiting all slaves.\n");
+    d_log(DB_DEBUG, msg);
 }
 
 // the lock in lock must already be initialized

@@ -257,6 +257,7 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 		}
 
 		off_t offset = 0;
+		printf("Copying file %s to %s\n", ent->path, dest);
 		ssize_t bytes_sent = sendfile(dest_fd, src_fd, &offset, ent->st_size);
 		fchmod(dest_fd, ent->st_mode);
 
@@ -411,12 +412,19 @@ struct dir_entry * collectFileList(char *root, struct dir_entry *list, dev_t dev
 
 				if(entry->d_type == DT_LNK) {
 					// first find where the link is pointing
-					char buffer[256];
-					int len = readlink(new->path, buffer, 256);
-					if(len >= 256) {
+					char buffer[1024];
+					int len = readlink(new->path, buffer, 1024);
+
+					if(len >= 1024) {
 						fprintf(stderr, "Error: Failed to follow the the link created by %s.\n", new->path);
 					} else {
-						new->link = realpath(buffer, NULL);
+						// readlink does NOT null terminate the string for us *eye roll*
+						buffer[len] = 0;
+						// change dir so that realpath works properly for relative paths
+						chdir(root);
+						
+						char *resolved = realpath(buffer, NULL);
+						new->link = resolved;
 					}
 				}
 

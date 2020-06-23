@@ -574,7 +574,6 @@ help_message() {
 	echo -e "\tD) List the devices that are currently registered in the backup system"
 	echo -e "\ta) Add a directory to the backup system"
 	echo -e "\tr) Remove a directory from the backup system"
-	echo -e "\ti) Display size information about the available external drives"
 	echo -e "\ts) Rescan available external devices"
 	echo -e "\th) Display this info message"
 	echo -e "\tl) Print when the last backup occurred"

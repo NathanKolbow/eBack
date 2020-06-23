@@ -1,3 +1,4 @@
+#include <time.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -82,6 +83,19 @@ int main(int argc, char *args[]) {
 		free(ins[i]);
 	}
 	free(ins);
+
+	// print out the timestamp
+	time_t now;
+	time(&now);
+	char *c_now = ctime(&now);
+
+	FILE *fp = fopen(lastback_stamp_loc, "w");
+	if(fp == NULL) {
+		// not a big deal, just quit
+	} else {
+		fwrite(c_now, strlen(c_now), 1, fp);
+		fclose(fp);
+	}
 
 	return 0;
 }

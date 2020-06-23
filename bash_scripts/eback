@@ -568,6 +568,10 @@ help_message() {
         #       *) Make executable program that gets put in crontab and does the actual backing up (probably same as previous *)
 
 	echo -e "\n\e[33m\e[4mCommands\e[0m"
+	echo -e "\tA) Add a device to the backup system"
+	echo -e "\tR) Remove a device from the backup system"
+	echo -e "\tL) List the devices that are currently visible to eBack"
+	echo -e "\tD) List the devices that are currently registered in the backup system"
 	echo -e "\ta) Add a directory to the backup system"
 	echo -e "\tr) Remove a directory from the backup system"
 	echo -e "\ti) Display size information about the available external drives"

@@ -241,16 +241,16 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 			}
 
 			char msg[1024];
-			sprintf(msg, "Error: Could not open %s; skipping.\n", dest);
-			d_log(DB_FATAL, msg);
+			sprintf(msg, "Warning: Could not open %s; skipping.\n", dest);
+			d_log(DB_WARNING, msg);
 			return 0;
 		}
 
 		int src_fd = open(ent->path, O_RDONLY);
 		if(src_fd == -1) {
 			char msg[1024];
-			sprintf(msg, "Error: Could not open %s; skipping.\n", ent->path);
-			d_log(DB_FATAL, msg);
+			sprintf(msg, "Warning: Could not open %s; skipping.\n", ent->path);
+			d_log(DB_WARNING, msg);
 
 			close(dest_fd);
 			return 0;
@@ -314,16 +314,16 @@ int mkdir_recursive(char *dir, int mode) {
 			*p = 0;
 			if(mkdir(tmp, mode) == -1 && errno != EEXIST) {
 				char msg[1024];
-				sprintf(msg, "Fatal: Could not make directory %s; #%d: %s.\n", dir, errno, strerror(errno));
-				d_log(DB_FATAL, msg);
+				sprintf(msg, "Warning: Could not make directory %s; #%d: %s.\n", dir, errno, strerror(errno));
+				d_log(DB_WARNING, msg);
 				return 0;
 			}
 			*p = '/';
 		}
 	if(mkdir(tmp, mode) == -1 && errno != EEXIST) {
 		char msg[1024];
-		sprintf(msg, "Fatal: Could not make directory %s; #%d: %s.\n", dir, errno, strerror(errno));
-		d_log(DB_FATAL, msg);
+		sprintf(msg, "Warning: Could not make directory %s; #%d: %s.\n", dir, errno, strerror(errno));
+		d_log(DB_WARNING, msg);
 		return 0;
 	}
 
@@ -339,8 +339,8 @@ int create_link(char *target, char *new) {
 			return 1;
 
 		char msg[1024];
-		sprintf(msg, "Warning: Could not create symbolic link %s --> %s, error #%d: %s.\n", new, target, errno, strerror(errno));
-		d_log(DB_WARNING, msg);
+		sprintf(msg, "Could not create symbolic link %s --> %s, error #%d: %s.\n", new, target, errno, strerror(errno));
+		d_log(DB_DEBUG, msg);
 		return 0;
 	}
 

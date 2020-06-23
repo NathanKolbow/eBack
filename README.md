@@ -24,6 +24,10 @@ A Linux utility meant to leverage multiple external drives in parallel in order 
 * q: Quits the shell
 
 
+## How It Works
+< To-Do >
+
+
 ## Utilities
 The main functions of this program are accessed through the eback script, but the following utilities are also included:
 1. format - Formats the given drive to XFS and creates a stamp that lets eback know the drive can be used in the backup system.

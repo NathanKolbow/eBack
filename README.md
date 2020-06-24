@@ -7,6 +7,7 @@ A Linux utility meant to leverage multiple external drives in parallel in order 
 * -f: forces the program to rescan for devices
 * -s: forces the program to skip scanning for devices
 * -B: performs a backup based on the existing configuration
+* -R: opens an interactive session that helps with file recovery
 
 -f and -s lead to an interactive shell, but -B simply performs the configured backup before quitting.
 

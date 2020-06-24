@@ -26,7 +26,7 @@ main() {
 	lastback_stamp_loc="$housing_dir/.lastback"
 	dirlist_loc="$housing_dir/dirs"
 
-	while getopts "fsuB :" OPTION; do
+	while getopts "fsuBR :" OPTION; do
 		case $OPTION in
 		f)
 			FORCE_SCAN=true
@@ -39,6 +39,10 @@ main() {
 			;;
 		B)
 			backup
+			exit_fxn
+			;;
+		R)
+			recover "$@"
 			exit_fxn
 			;;
 		*)
@@ -97,6 +101,144 @@ main() {
     run_loop
 }
 
+# Performs the recovery of some files
+recover() {
+	if [[ ! -f "${used_devs_loc}" ]]; then
+		echo "ERROR: ${used_devs_loc} does not exist."
+		exit_fxn
+	fi
+	if [[ $# -gt 2 ]]; then
+		echo "Usage: eback -R [directory]"
+		exit_fxn
+	fi
+
+	# Gather device UUIDs
+	UUIDs=()
+	while IFS= read -r line; do
+		UUIDs=(${UUIDs[@]} $line)
+	done < "${used_devs_loc}"
+
+
+	# Mount devices
+	temps=()
+	for i in `seq 0 $((${#UUIDs[@]}-1))`; do
+		tmp=`mktemp -d`
+		tmp="$tmp/"
+		temps=(${temps[@]} $tmp)
+
+		mount -o suid UUID="${UUIDs[i]}" $tmp
+		ret=$?
+
+		if [[ $ret -ne 0 ]]; then
+			echo "ERROR: Failed to mount UUID ${UUIDs[i]}. Mount error code: $ret. Exiting..."
+			exit_fxn
+		fi
+	done
+
+	# Get the requested file/directory if not already specified
+	if [[ $# -eq 2 ]]; then
+		request="$2"
+	else
+		printf "File/directory you would like to recover: "
+		read request
+	fi
+
+	echo "$request chosen for recovery."
+
+	echo ""
+
+	[[ "$dest" == "" ]] && dest="$request" || :
+
+	if [[ "${request:0:1}" == "/" ]]; then
+		printf "Search depth (default=0): "
+		read depth
+		num_regex='^[0-9]+$'
+		if [[ "$depth" == "" ]]; then
+			depth=0
+		elif ! [[ $depth =~ $re ]]; then
+			echo "$depth is not a valid number, using 0 instead."
+			depth=0
+		elif [[ $depth -lt 0 ]]; then
+			echo "$depth is not a valid number, using 0 instead."
+			depth=0
+		fi
+	fi
+	rsync_list=()
+
+	# Look for the requested file/directory in the backups
+	for h in `seq 0 $((${#temps[@]}-1))`; do
+		if [[ "${request:0:1}" == "/" ]]; then
+			output=(`find ${temps[h]}/$request -maxdepth $depth 2> /dev/null`)
+		else
+			printf "This may take a while..."
+			output=(`find ${temps[h]} -name $request 2> /dev/null`)
+			printf "\r$(tput el)"
+		fi
+		
+		echo -e "In UUID [\e[33m${UUIDs[h]^^}\e[39m]]:"
+		# Format the output so that it makes more sense for the user
+		for i in `seq 0 $((${#output[@]}-1))`; do
+			rsync_list=(${rsync_list[@]} ${output[i]//\/\/\//\/})
+
+			for j in `seq 0 $((${#temps[@]}-1))`; do
+				output[i]=${output[i]//${temps[j]}/}
+			done
+
+			output[i]=${output[i]//\/\/\//\/}
+			output[i]=${output[i]//\/\//\/}
+			printf "\t${output[i]}\n"
+		done
+	done
+
+	printf "Would you like to rsync these findings now? [y/N]: "
+	read answer
+
+	if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+		printf "rsync arguments (e.g. -v -rHA -Xogt --verbose): "
+		read args
+
+		printf "rsync destination: "
+		read destination
+
+		echo ""
+		echo ""
+
+		for i in `seq 0 $((${#rsync_list[@]}-1))`; do
+			if [[ i -eq 11 ]]; then
+				echo "\e[39m..."
+				break
+			fi
+
+			echo -e "\e[31mrsync $args ${rsync_list[i]} $destination"
+		done
+		printf "\e[39mWould you like to run these commands? [y/N]: "
+		read answer
+
+		if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+			echo "Running rsyncs..."
+			for i in `seq 0 $((${#rsync_list[@]}-1))`; do
+				rsync $args ${rsync_list[i]} $destination &
+				pids[${i}]=$!
+			done
+
+			# Wait for all the rsyncs to finish before exiting
+			for pid in ${pids[*]}; do
+				wait $pid
+			done
+		else
+			echo "You can mount backup drives to search through them manually with the following commands:"
+			for dev in ${UUIDs[@]}; do
+				echo -e "\t\e[36mmount -o suid UUID=$dev <directory>\e[39m"
+			done
+		fi
+	else
+		echo "You can mount backup drives to search through them manually with the following commands:"
+		for dev in ${UUIDs[@]}; do
+			echo -e "\t\e[36mmount -o suid UUID=$dev <directory>\e[39m"
+		done
+	fi
+}
+
 
 # PERFORMS THE SYSTEM BACKUP
 backup() {
@@ -141,11 +283,6 @@ backup() {
 	n_threads=2
 	for dir in ${dirs[@]}; do
 		cback -s $n_threads $dir ${temps[@]}
-	done
-
-	# For for pids to finish
-	for pid in ${pids[@]}; do
-		wait $pid
 	done
 
 	# Done.

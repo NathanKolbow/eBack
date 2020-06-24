@@ -35,7 +35,7 @@ When the list of directories is backed up with *eback -B*, each of the directori
 **btrfs Caveat**
 
 btrfs has very particular and unique ways of handling things, so for various reasons the following conditions exist:
-1. If you backup a directory that is **inside of** a btrfs volume of subvolume, subvolumes deeper within the directory's tree will **not** be backed up
+1. If you backup a directory that is **inside of** a btrfs volume of subvolume, separate subvolumes deeper within the directory's tree will **not** be backed up
 2. If you backup a directory that is the **head** of a btrfs **volume**, all subvolumes deeper within the directory's tree **will** be backed up
 
 

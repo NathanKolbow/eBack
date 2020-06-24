@@ -1,8 +1,8 @@
 # eBack
-A Linux utility meant to leverage multiple external drives in parallel in order to perform faster large-scale data backups.
+A Linux utility meant to make large-scale external backups easier; leverages multiple drives in parallel for faster data transfers.  The utility also does not cross filesystem boundaries, so you don't have to worry about overflow from things like NFS's or miscellaneous bind mounts.  Some support for btrfs file systems comes built-in (see **How It Works**).
 
 ## Usage
-<b>Command-line arguments:</b>
+**Command-line arguments:**
 
 * -f: forces the program to rescan for devices
 * -s: forces the program to skip scanning for devices
@@ -11,7 +11,7 @@ A Linux utility meant to leverage multiple external drives in parallel in order 
 
 -f and -s lead to an interactive shell, but -B simply performs the configured backup before quitting.
 
-<b>Shell commands:</b>
+**Shell commands:**
 
 * A <device #>: Add a device to the backup system with the device # listed from the L command
 * R <device #>: Remove a device from the backup system with the device # listed from the D command
@@ -26,7 +26,15 @@ A Linux utility meant to leverage multiple external drives in parallel in order 
 
 
 ## How It Works
-< To-Do >
+Two main lists are created via the interactive shell:
+1. A list of directories to be backed up
+2. A list of devices (stored in the form of UUIDs) that may be used for backups
+
+When the list of directories is backed up with *eback -B*, each of the directories in list (1) have their contents copied randomly across each device in list (2); as mentioned above, directory contents will only be copied over if those contents exist on the same filesystem as the directory provided in (1).  Each of the lists can be adjusted at will, but data will **not** be removed from the devices as a result of changing the lists.  Existing data will only be changed on the backup drives when a file is overwritten by a new version of itself.
+
+btrfs caveat: btrfs has very particular and unique ways of handling things, so for various reasons the following conditions exist:
+1. If you backup a directory that is **inside of** a btrfs volume of subvolume, subvolumes deeper within the directory's tree will **not** be backed up
+2. If you backup a directory that is the **head** of a btrfs **volume**, all subvolumes deeper within the directory's tree **will** be backed up
 
 
 ## Utilities

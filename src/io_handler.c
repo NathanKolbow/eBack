@@ -264,9 +264,33 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 		close(src_fd);
 		close(dest_fd);
 
+		
+		if(bytes_sent == -1) {
+			char msg[1024];
+			sprintf(msg, "Error: sendfile errored for file %s; (#%d): %s\n", ent->path, errno, strerror(errno));
+			d_log(DB_DEBUG, msg);
+
+			if(depth != 10) {
+				return try_backup(ent, dest, depth+1);
+			} else {
+				char msg[1024];
+				sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
+				d_log(DB_WARNING, msg);
+				return 0;
+			} 
+		}
 		if(bytes_sent != ent->st_size) {
-			unlink(dest);
-			return 0;
+			if(depth != 10) {
+				char msg[1024];
+				sprintf(msg, "%s was not fully transferred, trying again (attempt %d)\n", ent->path, depth);
+				d_log(DB_DEBUG, msg);
+				return try_backup(ent, dest, depth+1);
+			} else {
+				char msg[1024];
+				sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
+				d_log(DB_WARNING, msg);
+				return 0;
+			}
 		} else {
 			char msg[1024];
 			sprintf(msg, "Created %s.\n", dest);

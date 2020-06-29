@@ -34,6 +34,8 @@ When the list of directories is backed up with *eback -B*, each of the directori
 
 Each of the lists can be adjusted at will (either through the interactive shell, or manually in the /etc/ config files), but data will **not** be removed from the devices as a result of changing the lists.  Existing data will only be changed on the backup drives when a file is overwritten by a new version of itself.
 
+This utility uses sendfile(...) to optimize transfer speeds, so the utility is not meant to be portable outside of Ubuntu Xenial.
+
 
 #### btrfs Caveat
 btrfs has very particular and unique ways of handling things, so for various reasons the following conditions exist:

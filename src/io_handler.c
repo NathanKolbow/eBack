@@ -258,51 +258,85 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 
 		off_t offset = 0;
 		printf("Copying file %s to %s\n", ent->path, dest);
-		ssize_t bytes_sent = sendfile(dest_fd, src_fd, &offset, ent->st_size);
+
+		if(ent->st_size > 2000000000) {
+			// if the file is larger than 2 GBs, use the cp(...) call
+			int status = cp(dest_fd, src_fd);
+			
+			if(status == -1) {
+				char msg[1024];
+				sprintf(msg, "Error: sendfile errored for file %s; (#%d): %s\n", ent->path, errno, strerror(errno));
+				d_log(DB_DEBUG, msg);
+
+				if(depth != 10) {
+					return try_backup(ent, dest, depth+1);
+				} else {
+					char msg[1024];
+					sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
+					d_log(DB_WARNING, msg);
+					return 0;
+				} 
+			} else {
+				char msg[1024];
+				sprintf(msg, "Created %s.\n", dest);
+				d_log(DB_EVERYTHING, msg);
+
+				struct utimbuf src_time_data;
+				src_time_data.actime = ent->atim_tv_sec;
+				src_time_data.modtime = ent->mtim_tv_sec;
+
+				utime(dest, &src_time_data);
+				return 1;
+			}
+		} else {
+			// if the file is <2GB than sendfile(...) will work and be faster
+			ssize_t bytes_sent = sendfile(dest_fd, src_fd, &offset, ent->st_size);
+
+			if(bytes_sent == -1) {
+				char msg[1024];
+				sprintf(msg, "Error: sendfile errored for file %s; (#%d): %s\n", ent->path, errno, strerror(errno));
+				d_log(DB_DEBUG, msg);
+
+				if(depth != 10) {
+					return try_backup(ent, dest, depth+1);
+				} else {
+					char msg[1024];
+					sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
+					d_log(DB_WARNING, msg);
+					return 0;
+				} 
+			}
+			if(bytes_sent != ent->st_size) {
+				if(depth != 10) {
+					char msg[1024];
+					sprintf(msg, "%s was not fully transferred, trying again (attempt %d)\n", ent->path, depth);
+					d_log(DB_DEBUG, msg);
+					return try_backup(ent, dest, depth+1);
+				} else {
+					char msg[1024];
+					sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
+					d_log(DB_WARNING, msg);
+					return 0;
+				}
+			} else {
+				char msg[1024];
+				sprintf(msg, "Created %s.\n", dest);
+				d_log(DB_EVERYTHING, msg);
+
+				struct utimbuf src_time_data;
+				src_time_data.actime = ent->atim_tv_sec;
+				src_time_data.modtime = ent->mtim_tv_sec;
+
+				utime(dest, &src_time_data);
+				return 1;
+			}
+		}
+
+
 		fchmod(dest_fd, ent->st_mode);
 
 		close(src_fd);
 		close(dest_fd);
-
-		
-		if(bytes_sent == -1) {
-			char msg[1024];
-			sprintf(msg, "Error: sendfile errored for file %s; (#%d): %s\n", ent->path, errno, strerror(errno));
-			d_log(DB_DEBUG, msg);
-
-			if(depth != 10) {
-				return try_backup(ent, dest, depth+1);
-			} else {
-				char msg[1024];
-				sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
-				d_log(DB_WARNING, msg);
-				return 0;
-			} 
-		}
-		if(bytes_sent != ent->st_size) {
-			if(depth != 10) {
-				char msg[1024];
-				sprintf(msg, "%s was not fully transferred, trying again (attempt %d)\n", ent->path, depth);
-				d_log(DB_DEBUG, msg);
-				return try_backup(ent, dest, depth+1);
-			} else {
-				char msg[1024];
-				sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
-				d_log(DB_WARNING, msg);
-				return 0;
-			}
-		} else {
-			char msg[1024];
-			sprintf(msg, "Created %s.\n", dest);
-			d_log(DB_EVERYTHING, msg);
-
-			struct utimbuf src_time_data;
-			src_time_data.actime = ent->atim_tv_sec;
-			src_time_data.modtime = ent->mtim_tv_sec;
-
-			utime(dest, &src_time_data);
-			return 1;
-		}
 	} else if(ent->type == DT_LNK) {
 		return create_link(ent->link, dest);
 	} else if(ent->type == DT_DIR) {
@@ -322,6 +356,34 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 
 		return 0;
 	}
+}
+
+int cp(int to_fd, int from_fd) {
+	char buf[1048576];
+	ssize_t nread;
+
+	while(nread = read(from_fd, buf, sizeof buf), nread > 0) {
+		char *out_ptr = buf;
+		ssize_t nwritten;
+
+		do {
+			nwritten = write(to_fd, out_ptr, nread);
+			if(nwritten >= 0) {
+				nread -= nwritten;
+				out_ptr += nwritten;
+			} else if(errno != EINTR) {
+				goto out_error;
+			}
+		} while(nread > 0);
+	}
+
+	if(nread == 0) {
+		// Success!
+		return 0;
+	}
+
+out_error:
+	return -1;
 }
 
 int mkdir_recursive(char *dir, int mode) {

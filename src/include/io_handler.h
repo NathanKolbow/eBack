@@ -30,5 +30,6 @@ void transfer_init(char *, char **, int, int);
 void backup_file(struct dir_entry *);
 void free_list_node(struct dir_entry *);
 void fix_newline(char *);
+int cp(int, int);
 
 #endif // _IO_HANDLER_H_

@@ -348,7 +348,10 @@ run_loop() {
 list_inuse_devices() {
 	i=1
 	while IFS= read -r line; do
-		echo -e " -->\t$i. $line"
+		echo -e -n " -->\t$i. $line"
+		ret=`ls -l /dev/disk/by-uuid | grep "$i"`
+		[[ "$ret" == "" ]] && echo -e -n " \e[31m(Not attached)\e[39m\n" || echo -e -n " \e[32m(Attached)\e[39m\n"
+
 		i=$((i+1))
 	done < "${used_devs_loc}"
 }

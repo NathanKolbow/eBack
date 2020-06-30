@@ -18,7 +18,7 @@ main() {
 		_exit 2
 	fi
 
-	housing_dir="/opt/server-setup-scripts/external-backups" # to be changed to /etc/.../ when upon finalizing
+	housing_dir="/etc/eback" # to be changed to /etc/.../ when upon finalizing
     timestamp_loc="$housing_dir/lastdate"
     devdata_loc="$housing_dir/devices"
     reservedata_loc="$housing_dir/reserved"

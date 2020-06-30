@@ -29,7 +29,7 @@ int mkdir_recursive(char *, int);
 void freeFileList(struct dir_entry *);
 int sameDevice(dev_t, dev_t, char *);
 struct dir_entry * collectFileList(char *, struct dir_entry *, dev_t);
-int rnd();
+int next_dev();
 int recursive_dir(char *);
 
 char **GLOBAL_SRC_LIST;
@@ -150,7 +150,7 @@ void backup_file(struct dir_entry *ent) {
 
 	// Once we have concluded that the file is not already backed up, we try and back it up
 	if(dest == NULL) {
-		i = rnd();
+		i = next_dev();
 	} else {
 		// if we got here AND dest is not NULL, then dest is an old copy of our file, so we simply unlink it
 		unlink(dest);
@@ -603,7 +603,8 @@ void fix_newline(char *str) {
 	}
 }
 
-// Generates a random integer from 0 to RND_UPPER-1 inclusive
-int rnd() {
-	return rand() % LOCK_LEN;
+int CURR = 0;
+int next_dev() {
+	CURR = (CURR + 1) % LOCK_LEN;
+	return CURR;
 }

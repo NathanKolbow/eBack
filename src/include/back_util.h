@@ -2,12 +2,12 @@
 #define _BACK_UTIL_H_
 
 // Constants
-#define housing_dir "/opt/server-setup-scripts/external-backups"
-#define timestamp_loc "/opt/server-setup-scripts/external-backups/lastdate"
-#define devdata_loc "/opt/server-setup-scripts/external-backups/devices"
-#define reservedata_loc "/opt/server-setup-scripts/external-backups/reserved"
-#define lastback_stamp_loc "/opt/server-setup-scripts/external-backups/.lastback"
-#define dirlist_loc "/opt/server-setup-scripts/external-backups/dirs"
+#define housing_dir "/etc/eback"
+#define timestamp_loc "/etc/eback/lastdate"
+#define devdata_loc "/etc/eback/devices"
+#define reservedata_loc "/etc/eback/reserved"
+#define lastback_stamp_loc "/etc/eback/.lastback"
+#define dirlist_loc "/etc/eback/dirs"
 
 #define DIR_ENTRY_PREALLOC_INC 1000
 

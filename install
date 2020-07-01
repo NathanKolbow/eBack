@@ -6,22 +6,27 @@ if [[ "$user" != "root" ]]; then
 	exit
 fi
 
-
+echo "Installing eback..."
 
 cd src
+echo "Making cback..."
 make
 cd ..
 
+echo "Correcting file ownerships..."
 chown root:root .
 
+echo "Moving relevant files..."
 cp src/cback /usr/bin/cback
 cp bash_scripts/e_format /usr/bin/e_format
 cp bash_scripts/e_verify /usr/bin/e_verify
 cp bash_scripts/eback /usr/bin/eback
 
+echo "Correcting file permissions..."
 chmod 755 /usr/bin/cback
 chmod 755 /usr/bin/e_format
 chmod 755 /usr/bin/e_verify
 chmod 755 /usr/bin/eback
 
 mkdir /etc/eback/
+echo "Done.

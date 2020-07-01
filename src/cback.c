@@ -22,8 +22,8 @@
 #include "io_handler.h"
 #include "slave.h"
 
-int N_SLAVES = 4;
- 
+int N_SLAVES = -1;
+
 int main(int argc, char *args[]) {
 	if(argc < 3) {
 		fprintf(stderr, "Usage: %s [-s #] src (dests)\n", args[0]);
@@ -76,6 +76,8 @@ int main(int argc, char *args[]) {
 		i++;
 	}
 
+	// if the user provided a valud for N_SLAVES, use that, otherwise use as many slaves as there are devices
+	N_SLAVES = (N_SLAVES == -1) ? argc - optind - 1 : N_SLAVES;
 	// first input argument is the src, all the remaining inputs are the destinations
 	transfer_init(ins[0], ins+1, argc - optind - 1, N_SLAVES);
 

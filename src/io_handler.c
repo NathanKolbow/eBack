@@ -284,9 +284,6 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 					return 0;
 				} 
 			} else {
-				close(src_fd);
-				close(dest_fd);
-
 				char msg[1024];
 				sprintf(msg, "Created %s.\n", dest);
 				d_log(DB_EVERYTHING, msg);
@@ -340,9 +337,6 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 					return 0;
 				}
 			} else {
-				close(src_fd);
-				close(dest_fd);
-				
 				char msg[1024];
 				sprintf(msg, "Created %s.\n", dest);
 				d_log(DB_EVERYTHING, msg);
@@ -358,6 +352,8 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 
 		fchmod(dest_fd, ent->st_mode);
 
+		close(src_fd);
+		close(dest_fd);
 		return 1;
 	} else if(ent->type == DT_LNK) {
 		return create_link(ent->link, dest);

@@ -11,6 +11,7 @@ main() {
 	trap sig_close SIGTERM
 	trap sig_close SIGHUP
 
+	BACKUP=false
 	FORCE_SCAN=false
 	SKIP_SCAN=false
 	UNSAFE_MOUNT=false
@@ -38,8 +39,7 @@ main() {
 			UNSAFE_MOUNT=true
 			;;
 		B)
-			backup
-			exit_fxn
+			BACKUP=true
 			;;
 		R)
 			recover "$@"
@@ -51,6 +51,11 @@ main() {
 			;;
 		esac
 	done
+
+	if [[ "$BACKUP" == "true" ]]; then
+		backup
+		exit_fxn
+	fi
 
 	clear
 

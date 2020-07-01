@@ -28,5 +28,7 @@ chmod 755 /usr/bin/e_format
 chmod 755 /usr/bin/e_verify
 chmod 755 /usr/bin/eback
 
-mkdir /etc/eback/
+if [[ ! -d "/etc/eback/" ]]; then
+	mkdir /etc/eback/
+fi
 echo "Done.

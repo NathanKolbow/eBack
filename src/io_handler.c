@@ -241,7 +241,7 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 			}
 
 			char msg[1024];
-			sprintf(msg, "Warning: Could not open %s; skipping.\n", dest);
+			sprintf(msg, "Warning: Could not open %s; #%d: %s; skipping.\n", dest, errno, strerror(errno));
 			d_log(DB_WARNING, msg);
 			return 0;
 		}

@@ -71,6 +71,7 @@ void transfer_init(char *src, char **dest, int len, int n_slaves) {
 		strcpy(GLOBAL_SRC_LIST[size], buffer);
 		size++;
 	}
+	fclose(dir_list_fp);
 
 
 	SRC_PREFIX = src;
@@ -269,14 +270,23 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 				d_log(DB_DEBUG, msg);
 
 				if(depth != 10) {
+					close(src_fd);
+					close(dest_fd);
+
 					return try_backup(ent, dest, depth+1);
 				} else {
+					close(src_fd);
+					close(dest_fd);
+
 					char msg[1024];
 					sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
 					d_log(DB_WARNING, msg);
 					return 0;
 				} 
 			} else {
+				close(src_fd);
+				close(dest_fd);
+
 				char msg[1024];
 				sprintf(msg, "Created %s.\n", dest);
 				d_log(DB_EVERYTHING, msg);
@@ -286,7 +296,6 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 				src_time_data.modtime = ent->mtim_tv_sec;
 
 				utime(dest, &src_time_data);
-				return 1;
 			}
 		} else {
 			// if the file is <2GB than sendfile(...) will work and be faster
@@ -298,8 +307,14 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 				d_log(DB_DEBUG, msg);
 
 				if(depth != 10) {
+					close(src_fd);
+					close(dest_fd);
+
 					return try_backup(ent, dest, depth+1);
 				} else {
+					close(src_fd);
+					close(dest_fd);
+
 					char msg[1024];
 					sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
 					d_log(DB_WARNING, msg);
@@ -308,17 +323,26 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 			}
 			if(bytes_sent != ent->st_size) {
 				if(depth != 10) {
+					close(src_fd);
+					close(dest_fd);
+
 					char msg[1024];
 					sprintf(msg, "%s was not fully transferred, trying again (attempt %d)\n", ent->path, depth);
 					d_log(DB_DEBUG, msg);
 					return try_backup(ent, dest, depth+1);
 				} else {
+					close(src_fd);
+					close(dest_fd);
+
 					char msg[1024];
 					sprintf(msg, "Error: %s could not be transferred after retrying 10 times.\n", ent->path);
 					d_log(DB_WARNING, msg);
 					return 0;
 				}
 			} else {
+				close(src_fd);
+				close(dest_fd);
+				
 				char msg[1024];
 				sprintf(msg, "Created %s.\n", dest);
 				d_log(DB_EVERYTHING, msg);
@@ -328,15 +352,13 @@ int try_backup(struct dir_entry *ent, char *dest, char depth) {
 				src_time_data.modtime = ent->mtim_tv_sec;
 
 				utime(dest, &src_time_data);
-				return 1;
 			}
 		}
 
 
 		fchmod(dest_fd, ent->st_mode);
 
-		close(src_fd);
-		close(dest_fd);
+		return 1;
 	} else if(ent->type == DT_LNK) {
 		return create_link(ent->link, dest);
 	} else if(ent->type == DT_DIR) {

@@ -656,6 +656,7 @@ scan_devices() {
 			fi
 		else
 			# echo "Failed because this device is already mounted."
+			:
 		fi
 	done
 

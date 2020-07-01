@@ -593,7 +593,7 @@ scan_devices() {
 	tmpdir=`mktemp -d`
 
 	for device in ${potential_devs[@]}; do
-		status=`mount | grep $device`
+		status="" # this used to be a check for whether the drive is already mounted or not, but that is unnecessary so it's skipped now
 
 		printf "Scanning /dev/$device...\t"
 		if [[ "$status" == "" ]]; then
@@ -655,7 +655,7 @@ scan_devices() {
 				MOUNTED_DEV=""
 			fi
 		else
-			echo "Failed because this device is already mounted."
+			# echo "Failed because this device is already mounted."
 		fi
 	done
 

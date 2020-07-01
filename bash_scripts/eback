@@ -53,6 +53,13 @@ main() {
 	done
 
 	if [[ "$BACKUP" == "true" ]]; then
+		res=(`ps aux | grep cback`)
+		if [[ ${#res} -gt 1 ]]; then
+			if [[ "$FORCE_SCAN" != "true" ]]; then
+				echo "It looks like a backup process is already running.  If this is incorrect, override this check with the -f flag."
+				exit
+			fi
+		fi
 		backup
 		exit_fxn
 	fi

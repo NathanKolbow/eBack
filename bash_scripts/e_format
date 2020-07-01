@@ -23,6 +23,7 @@ main() {
 	fi
 
 	echo "Formatting $1."
+	umount $1
 	mkfs.xfs -f $1
 
 	tmpdir=`mktemp -d`

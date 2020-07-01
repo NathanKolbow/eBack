@@ -31,4 +31,4 @@ chmod 755 /usr/bin/eback
 if [[ ! -d "/etc/eback/" ]]; then
 	mkdir /etc/eback/
 fi
-echo "Done.
+echo "Done."

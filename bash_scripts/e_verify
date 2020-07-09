@@ -1,11 +1,11 @@
 #!/bin/bash
 
-## Usage: verify <device>
-## Checks to see whether or not the given drive is properly formatted (right now 
+## Usage: e_verify <device>
+## Checks to see whether or not the given drive is properly formatted (right now
 ## all this means is that all non-backup data that was initially on the drive was deleted)
 main() {
-	if [ $# -eq 0 ]; then
-		echo "No arguments supplied."
+	if [ $# -ne 1 ]; then
+		echo "Usage: e_verify <device>"
 		_exit 1
 	fi
 
@@ -19,10 +19,10 @@ main() {
 	fi
 
 	housing_dir="/etc/eback" # to be changed to /etc/.../ when upon finalizing
-    timestamp_loc="$housing_dir/lastdate"
-    devdata_loc="$housing_dir/devices"
-    reservedata_loc="$housing_dir/reserved"
-    lastback_stamp_loc="$housing_dir/.lastback"
+	timestamp_loc="$housing_dir/lastdate"
+    	devdata_loc="$housing_dir/devices"
+    	reservedata_loc="$housing_dir/reserved"
+    	lastback_stamp_loc="$housing_dir/.lastback"
 
 
 	if [[ ! -f "$reservedata_loc" ]]; then

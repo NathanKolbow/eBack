@@ -11,7 +11,7 @@ fi
 
 main() {
 	if [ $# -eq 0 ]; then
-		echo "Usage: format <device>"
+		echo "Usage: e_format <device>"
 		exit 0
 	fi
 

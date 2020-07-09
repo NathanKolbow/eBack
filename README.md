@@ -26,7 +26,7 @@ A Linux utility meant to make large-scale external backups easier; leverages mul
   
 #### Formatting:
 
-Devices can only be added to the eback system if they are properly formatted (via e_format).  This formatting completely clears provided disk segment and allows eback to recognize that segment.  This is accomplished with the command *eback /dev/<device>*.
+Devices can only be added to the eback system if they are properly formatted (via e_format).  This formatting completely clears the provided disk segment and allows eback to recognize that segment.  This is accomplished with the command *e_format /dev/\<device\>*.
 
 
 ## How It Works

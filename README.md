@@ -49,5 +49,5 @@ btrfs has very particular and unique ways of handling things, so for various rea
 
 ## Utilities
 The main functions of this program are accessed through the eback script, but the following utilities are also included:
-1. eformat - Formats the given drive to XFS and creates a stamp that lets eback know the drive can be used in the backup system.
-2. everify - Mostly for internal use, but you can use it to double-check that the format command worked on any given drive.
+1. e_format - Formats the given drive to XFS and creates a stamp that lets eback know the drive can be used in the backup system.
+2. e_verify - Mostly for internal use, but you can use it to double-check that the format command worked on any given drive.

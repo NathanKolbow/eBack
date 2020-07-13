@@ -1,6 +1,15 @@
 # eBack
 A Linux utility meant to make large-scale, local external backups easier; leverages multiple drives in parallel for larger, faster data transfers.  The utility also does not cross filesystem boundaries, so you don't have to worry about overflow from things like NFS's or miscellaneous bind mounts.  Some support for btrfs file systems comes built-in (see **How It Works**).
 
+## Installation
+
+``` block
+git clone https://github.com/NathanKolbow/eBack.git
+cd eBack
+sudo ./install
+```
+The main eback bash script depends on various programs, most of which come prepackaged with Xenial, but some miscellaneous dependencies may need to be installed.  This utility is only meant for Ubuntu Xenial, so proper installation is not guaranteed on any other OS.
+
 ## Usage
 #### Command-line arguments:
 

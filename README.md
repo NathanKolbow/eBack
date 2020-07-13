@@ -9,7 +9,7 @@ A Linux utility meant to make large-scale, local external backups easier; levera
 * -B: performs a backup based on the existing configuration
 * -R: opens an interactive session that helps with file recovery
 
--f and -s lead to an interactive shell, but -B simply performs the configured backup before quitting.
+-R, -f and -s lead to an interactive shell, but -B simply performs the configured backup before quitting.
 
 #### Shell commands:
 

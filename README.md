@@ -34,11 +34,11 @@ Two main lists are created via the interactive shell:
 1. A list of directories to be backed up
 2. A list of devices (stored in the form of UUIDs) that may be used for backups
 
-When the list of directories is backed up with *eback -B*, each of the directories in list (1) have their contents copied randomly across each device in list (2); as mentioned above, directory contents will only be copied over if those contents exist on the same filesystem as the directory provided in (1).
+When the list of directories is backed up with *eback -B*, each of the directories in list (1) have their contents copied across each device in list (2); as mentioned above, directory contents will only be recursively copied if those contents exist on the same filesystem as their parent directory.
 
-Each of the lists can be adjusted at will (either through the interactive shell, or manually in the /etc/ config files), but data will **not** be removed from the devices as a result of changing the lists.  Existing data will only be changed on the backup drives when a file is overwritten by a new version of itself.
+Each of the lists can be adjusted at will (either through the interactive shell, or manually in the /etc/ config files), but data will **not** be removed from the devices as a result of changing the lists.  Existing data will only be changed on the backup drives when a file is overwritten by a new version of itself; this means that devices may fill up past the capacity of the directory that they are backing up, so manual maintenance of drives may be required every so often.
 
-This utility uses sendfile(...) to optimize transfer speeds, so the utility is not meant to be portable outside of Ubuntu Xenial.
+This utility uses sendfile(...) to optimize transfer speeds, which varies by OS, so the utility is not meant to be portable outside of Ubuntu Xenial.
 
 
 #### btrfs Caveat

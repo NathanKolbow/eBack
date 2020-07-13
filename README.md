@@ -1,5 +1,5 @@
 # eBack
-A Linux utility meant to make large-scale external backups easier; leverages multiple drives in parallel for larger, faster data transfers.  The utility also does not cross filesystem boundaries, so you don't have to worry about overflow from things like NFS's or miscellaneous bind mounts.  Some support for btrfs file systems comes built-in (see **How It Works**).
+A Linux utility meant to make large-scale, local external backups easier; leverages multiple drives in parallel for larger, faster data transfers.  The utility also does not cross filesystem boundaries, so you don't have to worry about overflow from things like NFS's or miscellaneous bind mounts.  Some support for btrfs file systems comes built-in (see **How It Works**).
 
 ## Usage
 #### Command-line arguments:

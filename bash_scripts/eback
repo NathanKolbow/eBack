@@ -273,6 +273,7 @@ backup() {
 
 	# Mount devices
 	temps=()
+	dev_count=0
 	for i in `seq 0 $((${#UUIDs[@]}-1))`; do
 		tmp=`mktemp -d`
 		tmp="$tmp/"
@@ -280,6 +281,7 @@ backup() {
 
 		mount -o suid UUID="${UUIDs[i]}" $tmp
 		ret=$?
+		dev_count=$((dev_count + 1))
 
 		if [[ $ret -ne 0 ]]; then
 			echo "ERROR: Failed to mount UUID ${UUIDs[i]}. Mount error code: $ret. Exiting..."
@@ -295,7 +297,7 @@ backup() {
 
 	echo "`date`" > $lastback_stamp_loc
 
-	n_threads=4
+	n_threads=$dev_count
 	for dir in ${dirs[@]}; do
 		cback -s $n_threads $dir ${temps[@]}
 	done

@@ -185,8 +185,8 @@ void backup_file(struct dir_entry *ent) {
 
 			if(buf.f_bavail * buf.f_bsize < DRIVE_CUTOFF_CAPACITY) {
 				char msg[1024];
-				sprintf(msg, "Fatal: Ran out of space on %s; %lu, %lu, %lu < %d.\n", DEST[i], buf.f_bavail, buf.f_bsize, buf.f_bavail*buf.f_bsize, DRIVE_CUTOFF_CAPACITY);
-				d_log(DB_FATAL, msg);
+				sprintf(msg, "Warning: Ran out of space on %s; %lu, %lu, %lu < %d.\n", DEST[i], buf.f_bavail, buf.f_bsize, buf.f_bavail*buf.f_bsize, DRIVE_CUTOFF_CAPACITY);
+				d_log(DB_WARNING, msg);
 
 				DEST[i] = NULL;
 			}
@@ -206,6 +206,9 @@ void backup_file(struct dir_entry *ent) {
 	char msg[1024];
 	sprintf(msg, "Fatal: No more space remaining.\n");
 	d_log(DB_FATAL, msg);
+
+	FILE *fptr = fopen(out_of_space_loc, "w");
+	fclose(fptr);
 
 	exit(-1);
 }

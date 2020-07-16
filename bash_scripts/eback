@@ -26,6 +26,7 @@ main() {
 	reservedata_loc="$housing_dir/reserved"
 	lastback_stamp_loc="$housing_dir/.lastback"
 	dirlist_loc="$housing_dir/dirs"
+	missing_uuids_loc="$housing_dir/missing_uuids.err"
 
 	while getopts "fsuBR :" OPTION; do
 		case $OPTION in
@@ -270,22 +271,25 @@ backup() {
 		UUIDs=(${UUIDs[@]} $line)
 	done < "${used_devs_loc}"
 
-
 	# Mount devices
+	rm $missing_uuids_loc
 	temps=()
 	dev_count=0
 	for i in `seq 0 $((${#UUIDs[@]}-1))`; do
 		tmp=`mktemp -d`
 		tmp="$tmp/"
-		temps=(${temps[@]} $tmp)
 
 		mount -o suid UUID="${UUIDs[i]}" $tmp
 		ret=$?
-		dev_count=$((dev_count + 1))
 
 		if [[ $ret -ne 0 ]]; then
 			echo "ERROR: Failed to mount UUID ${UUIDs[i]}. Mount error code: $ret. Exiting..."
-			exit_fxn
+			umount $tmp &> /dev/null
+			
+			echo ${UUIDs[i]} >> $missing_uuids_loc
+		else
+			temps=(${temps[@]} $tmp)
+			dev_count=$((dev_count + 1))
 		fi
 	done
 

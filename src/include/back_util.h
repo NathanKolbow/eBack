@@ -8,6 +8,8 @@
 #define reservedata_loc "/etc/eback/reserved"
 #define lastback_stamp_loc "/etc/eback/.lastback"
 #define dirlist_loc "/etc/eback/dirs"
+#define missing_uuids_loc "/etc/eback/missing_uuids.err"
+#define out_of_space_loc "/etc/eback/outofspace.err"
 
 #define DIR_ENTRY_PREALLOC_INC 1000
 

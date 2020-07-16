@@ -1,0 +1,23 @@
+#!/bin/sh
+
+nearline_loc="/etc/google-backups/.lastback"
+printf "\nThe last Nearline backup started at: `cat $nearline_loc`.\n"
+
+eback_loc="/etc/eback/.lastback"
+printf "The last external backup started at: `cat $eback_loc`.\n\n"
+
+missing_uuids_loc="/etc/eback/missing_uuids.err"
+out_of_space_loc="/etc/eback/outofspace.err"
+
+if [ -f "$missing_uuids_loc" ]; then
+	echo "ERROR: The following external drives could not be found on the system:"
+	while IFS= read -r line; do
+		printf "\t* $line\n"
+	done < "$missing_uuids_loc"
+	printf "\n"
+fi
+
+if [ -f "$out_of_space_loc" ]; then
+	echo "ERROR: The external drives have run out of space."
+	printf "\n"
+fi

@@ -21,12 +21,14 @@ cp src/cback /usr/bin/cback
 cp bash_scripts/e_format /usr/bin/e_format
 cp bash_scripts/e_verify /usr/bin/e_verify
 cp bash_scripts/eback /usr/bin/eback
+cp bash_scripts/99-backup-info /etc/update-motd.d/99-backup-info
 
 echo "Correcting file permissions..."
 chmod 755 /usr/bin/cback
 chmod 755 /usr/bin/e_format
 chmod 755 /usr/bin/e_verify
 chmod 755 /usr/bin/eback
+chmod 755 /etc/update-motd.d/99-backup-info
 
 if [[ ! -d "/etc/eback/" ]]; then
 	mkdir /etc/eback/
